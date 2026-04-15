@@ -10,6 +10,9 @@ set(CMAKE_AUTORCC ON)
 # Find required Qt6 components
 find_package(Qt6 REQUIRED COMPONENTS Core Gui Sql Widgets)
 
+# Try to find QML/Quick components (optional, for QML examples)
+find_package(Qt6 COMPONENTS Qml Quick)
+
 qt_standard_project_setup()
 
 # AsyncSql library sources
@@ -35,53 +38,101 @@ set(LIB_HEADERS
     asyncsql/queryworker.h
 )
 
-# Example application sources
-set(APP_SOURCES
+# ---- Widgets Example App ----
+
+set(WIDGETS_APP_SOURCES
     examples/databaseviewer/main.cpp
     examples/databaseviewer/mainwindow.cpp
     examples/databaseviewer/optionsdialog.cpp
 )
 
-set(APP_HEADERS
+set(WIDGETS_APP_HEADERS
     examples/databaseviewer/mainwindow.h
     examples/databaseviewer/optionsdialog.h
 )
 
-set(APP_FORMS
+set(WIDGETS_APP_FORMS
     examples/databaseviewer/mainwindow.ui
     examples/databaseviewer/optionsdialog.ui
 )
 
-# Build executable
-add_executable(AsyncSql
+add_executable(AsyncSqlViewer
     ${LIB_SOURCES}
     ${LIB_HEADERS}
-    ${APP_SOURCES}
-    ${APP_HEADERS}
-    ${APP_FORMS}
+    ${WIDGETS_APP_SOURCES}
+    ${WIDGETS_APP_HEADERS}
+    ${WIDGETS_APP_FORMS}
 )
 
-target_link_libraries(AsyncSql PRIVATE
+target_link_libraries(AsyncSqlViewer PRIVATE
     Qt6::Core
     Qt6::Gui
     Qt6::Sql
     Qt6::Widgets
 )
 
-target_include_directories(AsyncSql PRIVATE
+target_include_directories(AsyncSqlViewer PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}
     ${CMAKE_CURRENT_SOURCE_DIR}/asyncsql
     ${CMAKE_CURRENT_SOURCE_DIR}/examples/databaseviewer
 )
 
-# Install rules
-install(TARGETS AsyncSql
+# ---- QML Example App (only if QML/Quick are available) ----
+
+if(Qt6Qml_FOUND AND Qt6Quick_FOUND)
+    set(QML_APP_SOURCES
+        examples/qmlviewer/main.cpp
+    )
+
+    set(QML_RESOURCES
+        examples/qmlviewer/qml.qrc
+    )
+
+    add_executable(AsyncSqlQml
+        ${LIB_SOURCES}
+        ${LIB_HEADERS}
+        ${QML_APP_SOURCES}
+        ${QML_RESOURCES}
+    )
+
+    target_link_libraries(AsyncSqlQml PRIVATE
+        Qt6::Core
+        Qt6::Gui
+        Qt6::Sql
+        Qt6::Widgets
+        Qt6::Qml
+        Qt6::Quick
+    )
+
+    target_include_directories(AsyncSqlQml PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}
+        ${CMAKE_CURRENT_SOURCE_DIR}/asyncsql
+    )
+
+    set_target_properties(AsyncSqlQml PROPERTIES
+        MACOSX_BUNDLE_GUI_IDENTIFIER com.asyncsql.qmlviewer
+        MACOSX_BUNDLE_BUNDLE_VERSION ${PROJECT_VERSION}
+        MACOSX_BUNDLE_SHORT_VERSION_STRING ${PROJECT_VERSION_MAJOR}.${PROJECT_VERSION_MINOR}
+        MACOSX_BUNDLE TRUE
+        WIN32_EXECUTABLE TRUE
+    )
+
+    qt_generate_deploy_app_script(
+        TARGET AsyncSqlQml
+        OUTPUT_SCRIPT qml_deploy_script
+    )
+    install(SCRIPT ${qml_deploy_script})
+endif()
+
+# ---- Install rules ----
+
+install(TARGETS AsyncSqlViewer
     BUNDLE DESTINATION .
     RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
 )
 
 qt_generate_deploy_app_script(
-    TARGET AsyncSql
+    TARGET AsyncSqlViewer
     OUTPUT_SCRIPT deploy_script
 )
 install(SCRIPT ${deploy_script})

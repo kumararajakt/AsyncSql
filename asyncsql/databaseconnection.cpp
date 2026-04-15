@@ -75,6 +75,10 @@ void DatabaseConnection::setDriver(DatabaseConnection::Driver driver)
     case MySQL:
         driverName = "QMYSQL";
         break;
+    case Unknown:
+    default:
+        driverName = "";
+        break;
     }
 }
 

@@ -319,6 +319,11 @@ bool AsyncSqlTableModel::getResults(const QueryResult &result) {
     case QueryRequest::CustomOperation:
         emit executed(true);
         break;
+    case QueryRequest::Command:
+        break;
+    case QueryRequest::None:
+    default:
+        break;
     }
 
     if(!insertedRows_.count() && !updatedRecordMap_.count() && !removedRows_.count() && submitCalled_) {

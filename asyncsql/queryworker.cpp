@@ -59,6 +59,9 @@ void QueryWorker::execute(const QueryRequest &request)
         case QueryRequest::CustomOperation:
             request.getCustomOperation()(m_database);
             break;
+        case QueryRequest::None:
+        default:
+            break;
         }
 
         qDebug() << "QueryWorker: Results processed in" << timer.elapsed() << "milliseconds.";
