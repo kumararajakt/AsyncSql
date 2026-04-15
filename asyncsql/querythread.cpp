@@ -37,8 +37,8 @@ void QueryThread::run() {
             m_worker, SLOT(execute(const QueryRequest &)));
 
     // first, make the object system aware
-    qRegisterMetaType<QueryRequest>("QueryRequest");
-    qRegisterMetaType<QueryResult>("QueryResult");
+    qRegisterMetaType<QueryRequest>();
+    qRegisterMetaType<QueryResult>();
     // now set up the queued connection
     // forward a signal back out
     connect(m_worker, SIGNAL(resultsReady(const QueryResult &)),

@@ -4,7 +4,7 @@
 #include "queryresult.h"
 #include "queryrequest.h"
 #include "querythread.h"
-#include <QTime>
+#include <QElapsedTimer>
 
 using namespace AsyncSql;
 
@@ -19,8 +19,8 @@ QueryWorker::QueryWorker(QObject *parent) :
 
 void QueryWorker::execute(const QueryRequest &request)
 {
-    QTime t;
-    t.start();
+    QElapsedTimer timer;
+    timer.start();
 
     try
     {
@@ -61,7 +61,7 @@ void QueryWorker::execute(const QueryRequest &request)
             break;
         }
 
-        qDebug() << "QueryWorker: Results processed in " << t.elapsed() << " milliseconds.";
+        qDebug() << "QueryWorker: Results processed in" << timer.elapsed() << "milliseconds.";
 
         setLastRecord(request);
 

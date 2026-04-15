@@ -12,7 +12,7 @@ class AsyncModelRegister : public QObject
     Q_OBJECT
 public:
     enum MarkMethod {MarkAfterSelected, MarkAfterSubmitted};
-    explicit AsyncModelRegister(QObject *parent = 0, MarkMethod method = MarkAfterSelected);
+    explicit AsyncModelRegister(QObject *parent = nullptr, MarkMethod method = MarkAfterSelected);
 
     void addModel(AsyncSqlTableModel *model);
     bool removeModel(AsyncSqlTableModel *model);

@@ -35,7 +35,7 @@ public slots:
 protected:
     virtual void run();
 private:
-    explicit QueryThread(QObject *parent = 0);
+    explicit QueryThread(QObject *parent = nullptr);
     static TransactionState transactionState;
     static void setTransactionState(TransactionState state);
 

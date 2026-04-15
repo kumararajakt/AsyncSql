@@ -8,7 +8,7 @@ QT       += core gui sql
 
 CONFIG += c++11
 
-greaterThan(QT_MAJOR_VERSION, 4): QT += widgets
+QT += widgets
 
 TARGET = AsyncSql
 TEMPLATE = app

@@ -194,9 +194,9 @@ QModelIndexList AsyncSqlTableModel::match(const QModelIndex &start, int role,
                                      const QVariant &value, int hits,
                                      Qt::MatchFlags flags) const
 {
-    switch(value.type()) {
-    case QVariant::Int:
-    case QVariant::Double:
+    switch(value.typeId()) {
+    case QMetaType::Int:
+    case QMetaType::Double:
     {
         int count = 0;
         QModelIndexList foundIndexes;

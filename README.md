@@ -83,7 +83,7 @@ In some occasions, you may want to run specific commands that are not provided b
 The functions **AsyncSql::QueryRequest::runBefore()** and **AsyncSql::QueryRequest::runAfter()** are also provided to conveniently run commands before or after a query respectively.
 
 ## Dependencies
-- [Qt 5] framework
+- [Qt 6] framework
 
 ## Todo
 * Database transaction handling
@@ -102,4 +102,4 @@ MIT
 
 [//]: # (These are reference links used in the body of this note and get stripped out when the markdown processor does its job. There is no need to format nicely because it shouldn't be seen. Thanks SO - http://stackoverflow.com/questions/4823468/store-comments-in-markdown-syntax)
 
-   [Qt 5]: <https://qt.gitorious.org/qt/qt5>
+   [Qt 6]: <https://www.qt.io>

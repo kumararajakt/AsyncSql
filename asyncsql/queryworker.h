@@ -13,7 +13,7 @@ class QueryWorker : public QObject
 {
     Q_OBJECT
 public:
-    explicit QueryWorker(QObject *parent = 0);
+    explicit QueryWorker(QObject *parent = nullptr);
     ~QueryWorker();
 
     static QString getSqliteConnectionName();
