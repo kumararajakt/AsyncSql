@@ -17,7 +17,7 @@ public:
     enum RequestType {None = -1, Select, Insert, Update, Delete,
                       BeginTransaction, CommitTransaction, Command,
                       CustomOperation};
-    explicit QueryRequest(QObject *receiver = 0, const QString &query = "", const QString &tableName = "",
+    explicit QueryRequest(QObject *receiver = nullptr, const QString &query = QString(), const QString &tableName = QString(),
                           RequestType type = Select);
 
     void setReceiver(QObject *);

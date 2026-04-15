@@ -18,9 +18,9 @@ public:
 
     static QString getSqliteConnectionName();
     static QString getMysqlConnectionName();
-signals:
+Q_SIGNALS:
     void resultsReady(const QueryResult &);
-public slots:
+public Q_SLOTS:
     void execute(const QueryRequest &);
 private:
     QSqlDatabase m_database;

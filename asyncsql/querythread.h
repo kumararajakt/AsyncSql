@@ -27,10 +27,10 @@ public:
     static QString getMysqlConnectionName();
 
     static TransactionState getTransactionState();
-signals:
+Q_SIGNALS:
     void queryFinished(const QueryResult &);
     void queue(const QueryRequest &);
-public slots:
+public Q_SLOTS:
     void execute(const QueryRequest &);
 protected:
     virtual void run();

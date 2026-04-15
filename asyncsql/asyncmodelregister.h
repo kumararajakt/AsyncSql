@@ -20,9 +20,9 @@ public:
     bool isDone() const;
 
     QList<AsyncSqlTableModel *> models() const;
-signals:
+Q_SIGNALS:
     void allMarked(bool);
-public slots:
+public Q_SLOTS:
     void mark();
     void clear();
 private:

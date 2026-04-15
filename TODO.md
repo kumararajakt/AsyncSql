@@ -16,18 +16,18 @@
 - [ ] Implement `customInsert()` and `customUpdate()` base class behaviour — currently empty stubs (`asyncsqltablemodel.cpp:634,640`)
 - [ ] Fix QML TableView — horizontal header row showing column names
 - [ ] Fix QML TableView — clicking a row should update `currentRow` on the model
-- [ ] Add `setSelectQuery(QString)` setter so subclasses can supply a raw SELECT without having to override `select()` entirely — checkd's `TaskModel` overrides `select()` just to emit a custom query string, which means the base class `filter_`/`sort_` state is silently ignored
-- [ ] Add a `QAbstractListModel`-based variant (or make the base class switchable) — checkd and most QML consumers are list models; the `QAbstractTableModel` base forces `columnCount()` and `headerData()` overrides that go unused
-- [ ] Add a virtual `initDb()` / `onInit()` hook called once before the first `select()` — checkd works around the absence of this by chaining a `CustomOperation` through the `executed` signal, which is fragile and requires an extra round-trip through the background thread
+- [x] Add `setSelectQuery(QString)` setter so subclasses can supply a raw SELECT without having to override `select()` entirely — checkd's `TaskModel` overrides `select()` just to emit a custom query string, which means the base class `filter_`/`sort_` state is silently ignored
+- [x] Add a `QAbstractListModel`-based variant (or make the base class switchable) — checkd and most QML consumers are list models; the `QAbstractTableModel` base forces `columnCount()` and `headerData()` overrides that go unused
+- [x] Add a virtual `initDb()` / `onInit()` hook called once before the first `select()` — checkd works around the absence of this by chaining a `CustomOperation` through the `executed` signal, which is fragile and requires an extra round-trip through the background thread
 
 ### Code Quality
 - [ ] Guard all `qDebug()` calls behind `QT_DEBUG` or a library-level logging flag — there are many left in `queryworker.cpp` and `asyncsqltablemodel.cpp`
 - [ ] Make `QueryThread` singleton initialization thread-safe (currently a raw `static` pointer, not safe for concurrent first-call scenarios — `querythread.cpp:22`)
 - [ ] Clean up `QueryWorker` in `QueryThread` destructor — worker is `new`-ed but never deleted (`querythread.cpp:33`)
 - [ ] Remove or properly implement the large commented-out transaction-state block in `submitAll()` (`asyncsqltablemodel.cpp:461-470`)
-- [ ] Replace bare `signals:`/`slots:`/`emit` keywords with `Q_SIGNALS`/`Q_SLOTS`/`Q_EMIT` throughout all headers and sources — required for projects (like checkd) that build with `QT_NO_KEYWORDS` (KDE policy); currently worked around by `-UQT_NO_KEYWORDS` in the CMake target compile options
-- [ ] Replace `0` with `nullptr` and `""` with `QString()` in default parameter values (`queryrequest.h`, `queryresult.h`) — avoids `-Wzero-as-null-pointer-constant` and deprecated-literal warnings under strict compiler settings
-- [ ] Document the `executed(bool)` signal — it fires when a `CustomOperation` completes but is not mentioned in the README; consumers like checkd rely on it for post-write reloads
+- [x] Replace bare `signals:`/`slots:`/`emit` keywords with `Q_SIGNALS`/`Q_SLOTS`/`Q_EMIT` throughout all headers and sources — required for projects (like checkd) that build with `QT_NO_KEYWORDS` (KDE policy); currently worked around by `-UQT_NO_KEYWORDS` in the CMake target compile options
+- [x] Replace `0` with `nullptr` and `""` with `QString()` in default parameter values (`queryrequest.h`, `queryresult.h`) — avoids `-Wzero-as-null-pointer-constant` and deprecated-literal warnings under strict compiler settings
+- [x] Document the `executed(bool)` signal — it fires when a `CustomOperation` completes but is not mentioned in the README; consumers like checkd rely on it for post-write reloads
 
 ### Security
 - [ ] Sanitize or validate `tableName`, `filter`, and sort column values — they are interpolated directly into SQL strings with no escaping, which allows SQL injection if user-controlled values are passed in

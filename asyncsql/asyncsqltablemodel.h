@@ -3,6 +3,7 @@
 
 #include <QAbstractTableModel>
 #include <QtSql>
+#include <QSqlDatabase>
 #include "queryrequest.h"
 #include "queryresult.h"
 
@@ -39,6 +40,12 @@ public:
     virtual void setSort(int column, Qt::SortOrder);
     void setTable(const QString &);
     QString tableName() const;
+
+    // Supply a raw SELECT base query (e.g. with JOINs).  The base class
+    // select() will still append any active filter, sort order, and limit.
+    // If unset the default "SELECT * FROM <tableName>" is used.
+    void setSelectQuery(const QString &query);
+    QString selectQuery() const;
 
     bool isDirty() const;
     bool isDirty(const QModelIndex &index) const;
@@ -82,25 +89,33 @@ protected:
     QList<int> insertedRows() const;
     QSqlIndex primaryIndex() const;
 
+    // Called once on the worker thread immediately before the first select().
+    // Override to run schema migrations or any one-time database setup.
+    // Throw DatabaseException to abort the operation.
+    virtual void onInit(QSqlDatabase &db);
+
     void setLastError(const QSqlError &);
     void setBusy(bool);
-signals:
+Q_SIGNALS:
     void execute(const QueryRequest &);
     void selected(bool successful);
     void submitted(bool successful);
-    void executed(bool successful); // For custom operations
+    // Emitted when a CustomOperation completes (successful = false on error).
+    // Consumers that rely on post-write reloads should connect to this signal.
+    void executed(bool successful);
     void busyChanged(bool);
 
     void currentRowChanged(int); // For use with QML
-protected slots:
+protected Q_SLOTS:
     virtual bool getResults(const QueryResult &);
-public slots:
+public Q_SLOTS:
     virtual void select();
     virtual void submitAll();
     void revertAll();
 private:
     QString filter_;
     QString tableName_;
+    QString selectQuery_;
     Qt::SortOrder order_;
     int sortColumn_;
     int limit_;
@@ -116,6 +131,7 @@ private:
     bool foreignKeyFlag_;
 
     bool selectedSignalSuppressed_;
+    bool initDone_;
 
     int currentRow_; // For use with QML
     bool busy_;

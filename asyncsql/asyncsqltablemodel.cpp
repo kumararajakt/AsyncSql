@@ -2,6 +2,7 @@
 #include "queryrequest.h"
 #include "queryresult.h"
 #include "querythread.h"
+#include <QSqlDatabase>
 #include <algorithm>
 
 using namespace AsyncSql;
@@ -15,6 +16,7 @@ AsyncSqlTableModel::AsyncSqlTableModel(QObject *parent) :
     submitCalled_(false),
     currentRow_(-1),
     foreignKeyFlag_(true),
+    initDone_(false),
     busy_(false),
     QAbstractTableModel(parent)
 {
@@ -228,7 +230,9 @@ QModelIndexList AsyncSqlTableModel::match(const QModelIndex &start, int role,
 }
 
 void AsyncSqlTableModel::select() {
-    QString query = QString("SELECT * FROM %1").arg(tableName_);
+    QString query = selectQuery_.trimmed().isEmpty()
+        ? QString("SELECT * FROM %1").arg(tableName_)
+        : selectQuery_.trimmed();
 
     if(!filter_.trimmed().isEmpty())
         query += " WHERE " + filter_.trimmed();
@@ -265,6 +269,12 @@ void AsyncSqlTableModel::select() {
 
     QueryRequest request(this, query, tableName_, QueryRequest::Select);
     request.setSortColumn(sortColumn_);
+
+    if (!initDone_) {
+        initDone_ = true;
+        request.setRunBefore([this](QSqlDatabase db){ onInit(db); });
+    }
+
     emit execute(request);
 }
 
@@ -646,4 +656,20 @@ void AsyncSqlTableModel::customUpdate(const QVariantMap &values)
 bool AsyncSqlTableModel::isBusy() const
 {
     return busy_;
+}
+
+void AsyncSqlTableModel::setSelectQuery(const QString &query)
+{
+    selectQuery_ = query;
+}
+
+QString AsyncSqlTableModel::selectQuery() const
+{
+    return selectQuery_;
+}
+
+void AsyncSqlTableModel::onInit(QSqlDatabase &)
+{
+    // Default: no-op.  Override to run schema migrations or one-time setup
+    // on the worker thread before the first select().
 }
