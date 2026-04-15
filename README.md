@@ -82,14 +82,70 @@ In some occasions, you may want to run specific commands that are not provided b
     
 The functions **AsyncSql::QueryRequest::runBefore()** and **AsyncSql::QueryRequest::runAfter()** are also provided to conveniently run commands before or after a query respectively.
 
+## Building the library
+
+### qmake
+
+```bash
+qmake AsyncSql.pro
+make
+```
+
+This produces `lib/libasyncsql.a` and the example binaries under `build/`.
+
+### CMake
+
+```bash
+cmake -B build .
+cmake --build build
+```
+
+---
+
+## Linking in your own project
+
+### qmake
+
+Copy (or clone) this repository somewhere, build it once to produce the static library, then in your own `.pro` file:
+
+```qmake
+# Path to the AsyncSql repository root
+ASYNCSQL_ROOT = /path/to/AsyncSql
+
+INCLUDEPATH += $$ASYNCSQL_ROOT
+LIBS        += -L$$ASYNCSQL_ROOT/lib -lasyncsql
+```
+
+Then include headers with the `asyncsql/` prefix:
+
+```cpp
+#include "asyncsql/asyncsqltablemodel.h"
+#include "asyncsql/databaseconnection.h"
+```
+
+### CMake
+
+If you have the AsyncSql source tree available (e.g. as a git submodule), use `add_subdirectory`:
+
+```cmake
+add_subdirectory(path/to/AsyncSql)
+
+target_link_libraries(YourTarget PRIVATE asyncsql)
+```
+
+The `asyncsql` target already propagates its include directories, so no extra `target_include_directories` call is needed.
+
+Alternatively, build and install AsyncSql first and consume it via `find_package` (once install rules are wired up).
+
+---
+
 ## Dependencies
 - [Qt 6] framework
 
 ## Todo
-* Database transaction handling
-* More examples (especially one that uses **QML**)
-* Other databases
- 
+
+See [TODO.md](TODO.md).
+
 Lastly, as I always say:
 
 **Please report all bugs. 

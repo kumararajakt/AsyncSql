@@ -54,6 +54,13 @@ QVariant AsyncSqlTableModel::data(const QModelIndex &index, int role) const {
     return QVariant();
 }
 
+QHash<int, QByteArray> AsyncSqlTableModel::roleNames() const {
+    QHash<int, QByteArray> roles;
+    for (int i = 0; i < emptyRecord_.count(); ++i)
+        roles[Qt::UserRole + 1 + i] = emptyRecord_.fieldName(i).toUtf8();
+    return roles;
+}
+
 QVariant AsyncSqlTableModel::headerData(int section, Qt::Orientation orientation, int role) const
 {
     if (role != Qt::DisplayRole)

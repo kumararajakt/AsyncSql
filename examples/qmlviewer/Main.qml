@@ -73,11 +73,12 @@ ApplicationWindow {
             model: sqlModel
 
             delegate: TextField {
-                text: display
-                readOnly: !styleData.editable
+                implicitWidth: 150
+                implicitHeight: 36
+                text: tableView.model.data(tableView.model.index(row, column)) ?? ""
                 selectByMouse: true
                 onEditingFinished: {
-                    sqlModel.setData(sqlModel.index(styleData.row, styleData.column), text, Qt.EditRole)
+                    sqlModel.setData(sqlModel.index(row, column), text, Qt.EditRole)
                 }
             }
         }
