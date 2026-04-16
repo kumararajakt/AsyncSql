@@ -3,14 +3,14 @@
 
 using namespace AsyncSql;
 
-QString DatabaseConnection::defaultHostName = "";
+QString DatabaseConnection::defaultHostName;
 int DatabaseConnection::defaultPort = 3306;
 
-QString DatabaseConnection::defaultUserName = "";
-QString DatabaseConnection::defaultPassword = "";
-QString DatabaseConnection::defaultDriverName = "";
-QString DatabaseConnection::defaultDatabaseName = "";
-QString DatabaseConnection::defaultConnectOptions = "";
+QString DatabaseConnection::defaultUserName;
+QString DatabaseConnection::defaultPassword;
+QString DatabaseConnection::defaultDriverName;
+QString DatabaseConnection::defaultDatabaseName;
+QString DatabaseConnection::defaultConnectOptions;
 DatabaseConnection::Driver DatabaseConnection::defaultDriver = DatabaseConnection::Unknown;
 
 DatabaseConnection::DatabaseConnection() :
@@ -21,7 +21,6 @@ DatabaseConnection::DatabaseConnection() :
 
 DatabaseConnection::~DatabaseConnection()
 {
-
 }
 
 void DatabaseConnection::setHostName(const QString &hostName)
@@ -70,14 +69,14 @@ void DatabaseConnection::setDriver(DatabaseConnection::Driver driver)
 
     switch(driver) {
     case SQLite:
-        driverName = "QSQLITE";
+        driverName = QStringLiteral("QSQLITE");
         break;
     case MySQL:
-        driverName = "QMYSQL";
+        driverName = QStringLiteral("QMYSQL");
         break;
     case Unknown:
     default:
-        driverName = "";
+        driverName.clear();
         break;
     }
 }
@@ -158,13 +157,13 @@ void DatabaseConnection::setDefaultDriver(DatabaseConnection::Driver driver)
 
     switch(driver) {
     case SQLite:
-        defaultDriverName = "QSQLITE";
+        defaultDriverName = QStringLiteral("QSQLITE");
         break;
     case MySQL:
-        defaultDriverName = "QMYSQL";
+        defaultDriverName = QStringLiteral("QMYSQL");
         break;
     default:
-        defaultDriverName = "";
+        defaultDriverName.clear();
         break;
     }
 }

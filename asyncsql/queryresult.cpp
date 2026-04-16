@@ -83,21 +83,21 @@ QString QueryResult::getObjectName() const
 void QueryResult::clear() {
     receiver = nullptr;
     requestType = QueryRequest::None;
-    objectName = "";
+    objectName.clear();
     records.clear();
     record.clear();
     primaryIndex.clear();
     error = QSqlError();
     lastRecord.clear();
     successful = false;
-    statusMsg = "";
+    statusMsg.clear();
 }
 
 void QueryResult::setStatus(bool successful, const QString &msg) {
     this->successful = successful;
 
     if(msg.trimmed().isEmpty())
-        statusMsg = successful ? "SUCCEEDED" : "FAILED";
+        statusMsg = successful ? QStringLiteral("SUCCEEDED") : QStringLiteral("FAILED");
 }
 
 bool QueryResult::isSuccessful() const

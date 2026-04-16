@@ -33,7 +33,7 @@ void AsyncModelRegister::mark() {
     totalMarked++;
 
     if(isDone())
-        emit allMarked(true);
+        Q_EMIT allMarked(true);
 }
 
 bool AsyncModelRegister::removeModel(AsyncSqlTableModel *model) {

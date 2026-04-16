@@ -50,7 +50,7 @@ void QueryThread::run() {
 void QueryThread::execute(const QueryRequest &request)
 {
     qDebug() << "QueryThread::execute() got this query: " << request.getQuery();
-    emit queue(request); // queues to worker
+    Q_EMIT queue(request); // queues to worker
 }
 
 QString QueryThread::getSqliteConnectionName()

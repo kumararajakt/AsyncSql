@@ -8,8 +8,8 @@
 
 using namespace AsyncSql;
 
-const QString sqliteConnectionName = "query_thread_sqlite";
-const QString mysqlConnectionName = "query_thread_mysql";
+const QString sqliteConnectionName = QStringLiteral("query_thread_sqlite");
+const QString mysqlConnectionName  = QStringLiteral("query_thread_mysql");
 
 QueryWorker::QueryWorker(QObject *parent) :
     QObject(parent)
@@ -72,7 +72,7 @@ void QueryWorker::execute(const QueryRequest &request)
 
         result.setRequestType(request.getRequestType());
         result.setStatus(true);
-        emit resultsReady(result);
+        Q_EMIT resultsReady(result);
         result.clear();
     }
     catch (DatabaseException &e)
@@ -82,11 +82,10 @@ void QueryWorker::execute(const QueryRequest &request)
 
         qDebug() << "Emitting failure results for " << request.getTableName();
         qDebug() << e.getError();
-        emit resultsReady(QueryResult(request.getReceiver(), request.getRequestType(), error));
+        Q_EMIT resultsReady(QueryResult(request.getReceiver(), request.getRequestType(), error));
         result.clear();
 
         m_database.rollback();
-        //unlockTables();
     }
     catch(std::exception &e)
     {
@@ -124,7 +123,7 @@ void QueryWorker::openConnection(const QueryRequest &request)
             || m_database.connectOptions() != connectOptions)
         m_database.close();
 
-    connectionName = (driverName == "QSQLITE" ? sqliteConnectionName : mysqlConnectionName);
+    connectionName = (driverName == QLatin1String("QSQLITE") ? sqliteConnectionName : mysqlConnectionName);
 
     if(!QSqlDatabase::contains(connectionName))
         m_database = QSqlDatabase::addDatabase(driverName, connectionName);
@@ -137,7 +136,6 @@ void QueryWorker::openConnection(const QueryRequest &request)
     m_database.setPort(port);
     m_database.setDatabaseName(databaseName);
     m_database.setConnectOptions(connectOptions);
-    //m_database.setConnectOptions("MYSQL_OPT_RECONNECT = 1;");
 
     if(!m_database.open())
         throw DatabaseException(m_database.lastError());
@@ -148,7 +146,7 @@ void QueryWorker::select(const QueryRequest &request)
     QSqlQuery qry(m_database);
 
     if(request.getSortColumn() >= 0) {
-        qry.prepare(QString("SELECT * FROM %1 LIMIT 0").arg(request.getTableName()));
+        qry.prepare(QStringLiteral("SELECT * FROM %1 LIMIT 0").arg(request.getTableName()));
 
         if(!qry.exec())
             throw DatabaseException(qry.lastError());
@@ -195,7 +193,7 @@ void QueryWorker::update(const QueryRequest &request)
             if(!record.isGenerated(j))
                 continue;
 
-            query = QString("UPDATE %1 SET %2 = ? WHERE %3 = ?").arg(request.getTableName(),
+            query = QStringLiteral("UPDATE %1 SET %2 = ? WHERE %3 = ?").arg(request.getTableName(),
                                                                  record.fieldName(j),
                                                                  request.getPrimaryIndex().fieldName(0));
             qry.prepare(query);
@@ -220,28 +218,26 @@ void QueryWorker::insert(const QueryRequest &req)
 
     QList<QSqlRecord> records(request.getRecords());
     for(const QSqlRecord &record : records) {
-        QString query;
-        query = QString("INSERT INTO %1 (").arg(request.getTableName());
+        QString query = QStringLiteral("INSERT INTO %1 (").arg(request.getTableName());
 
         for(int j = 0; j < record.count(); ++j) {
             query += record.fieldName(j);
 
             if(j != record.count() - 1)
-                query += ", ";
+                query += QLatin1String(", ");
             else
-                query += ") ";
+                query += QLatin1String(") ");
         }
 
-        query += "VALUES (";
+        query += QStringLiteral("VALUES (");
 
-        // Prepare query
         for(int j = 0; j < record.count(); ++j) {
-            query += "?";
+            query += QLatin1Char('?');
 
             if(j != record.count() - 1)
-                query += ", ";
+                query += QLatin1String(", ");
             else
-                query += ")";
+                query += QLatin1Char(')');
         }
 
         qDebug() << "Prepared query for" << request.getTableName() << "in query worker? " << query;
@@ -266,21 +262,17 @@ void QueryWorker::remove(const QueryRequest &request)
 {
     QSqlQuery qry(m_database);
 
-    // Delete code
     for(int i = 0; i < request.getRecords().count(); ++i) {
         QSqlRecord record(request.getRecords().at(i));
-        QString query;
 
-        query = QString("DELETE FROM %1 WHERE %2 = ?").arg(request.getTableName(),
-                                                           request.getPrimaryIndex().fieldName(0));
-
+        const QString query = QStringLiteral("DELETE FROM %1 WHERE %2 = ?").arg(request.getTableName(),
+                                                                   request.getPrimaryIndex().fieldName(0));
         qry.prepare(query);
         qry.addBindValue(record.value(request.getPrimaryIndex().fieldName(0)));
 
         if(!qry.exec()) {
             qDebug() << "Failed to delete record in query worker.";
             qDebug() << "The delete query in query worker for " << request.getTableName() << "? " << query;
-
             qDebug() << qry.lastError();
             throw DatabaseException(qry.lastError());
         }
@@ -292,7 +284,7 @@ void QueryWorker::remove(const QueryRequest &request)
 void QueryWorker::startTransaction()
 {
     QSqlQuery q(m_database);
-    q.prepare("SET autocommit = 0");
+    q.prepare(QStringLiteral("SET autocommit = 0"));
 
     if(!q.exec()) {
         qDebug() << "Failed to set autocommit to false.";
@@ -308,7 +300,6 @@ void QueryWorker::startTransaction()
 
 void QueryWorker::commitTransaction()
 {
-
     try {
         if(!m_database.commit()) {
             qDebug() << "Failed to commit transaction in QueryWorker::execute().";
@@ -316,17 +307,14 @@ void QueryWorker::commitTransaction()
         }
 
         QSqlQuery q(m_database);
-        q.prepare("SET autocommit = 1");
+        q.prepare(QStringLiteral("SET autocommit = 1"));
 
         if(!q.exec()) {
             qDebug() << "Failed to set autocommit to true.";
             throw DatabaseException(m_database.lastError());
         }
-
-        //unlockTables();
     }
     catch(DatabaseException &) {
-        //unlockTables();
         throw;
     }
 }
@@ -349,7 +337,7 @@ void QueryWorker::setLastRecord(const QueryRequest &request) {
     if(request.getTableName().trimmed().isEmpty())
         return;
     QSqlQuery q(m_database);
-    q.prepare(QString("SELECT * FROM %1 ORDER BY %2 DESC LIMIT 1")
+    q.prepare(QStringLiteral("SELECT * FROM %1 ORDER BY %2 DESC LIMIT 1")
               .arg(request.getTableName(),
                    m_database.primaryIndex(request.getTableName()).fieldName(0)));
     if(!q.exec()) {
@@ -366,11 +354,10 @@ void QueryWorker::lockTables(const QueryRequest &request)
 {
     try {
         QSqlQuery qry(m_database);
-        qry.prepare(QString("LOCK TABLES %1 WRITE").arg(request.getTableName()));
+        qry.prepare(QStringLiteral("LOCK TABLES %1 WRITE").arg(request.getTableName()));
 
-        if(!qry.exec()) {
+        if(!qry.exec())
             throw DatabaseException(qry.lastError());
-        }
     }
     catch(DatabaseException &) {
         throw;
@@ -381,11 +368,10 @@ void QueryWorker::unlockTables()
 {
     try {
         QSqlQuery qry(m_database);
-        qry.prepare(QString("UNLOCK TABLES"));
+        qry.prepare(QStringLiteral("UNLOCK TABLES"));
 
-        if(!qry.exec()) {
+        if(!qry.exec())
             throw DatabaseException(qry.lastError());
-        }
     }
     catch(DatabaseException &) {
         throw;
@@ -393,7 +379,6 @@ void QueryWorker::unlockTables()
 }
 
 QueryWorker::~QueryWorker() {
-
 }
 
 QString QueryWorker::getSqliteConnectionName()

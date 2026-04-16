@@ -48,7 +48,7 @@ QVariant AsyncSqlTableModel::data(const QModelIndex &index, int role) const {
 
     // For roles
     if(role >= Qt::UserRole + 1)
-        return record(index.row()).value(fieldIndex(roleNames()[role]));
+        return record(index.row()).value(fieldIndex(QString::fromUtf8(roleNames()[role])));
     if (role == Qt::DisplayRole || role == Qt::EditRole)
         return records_.at(index.row()).value(index.column());
 
@@ -76,11 +76,11 @@ QVariant AsyncSqlTableModel::headerData(int section, Qt::Orientation orientation
     else {
         if(removedRows_.contains(section)) {
             //qDebug() << "The removed section is " << section;
-            return "!";
+            return QStringLiteral("!");
         }
         if(insertedRows_.contains(section)) {
             //qDebug() << "The inserted section is " << section;
-            return "*";
+            return QStringLiteral("*");
         }
         return section + 1;
     }
@@ -143,7 +143,7 @@ bool AsyncSqlTableModel::setData(const QModelIndex &index, const QVariant &value
         updatedRecordMap_.insert(index.row(), record);
     }
 
-    emit dataChanged(index, index);
+    Q_EMIT dataChanged(index, index);
     return true;
 }
 
@@ -230,21 +230,21 @@ QModelIndexList AsyncSqlTableModel::match(const QModelIndex &start, int role,
 
 void AsyncSqlTableModel::select() {
     QString query = selectQuery_.trimmed().isEmpty()
-        ? QString("SELECT * FROM %1").arg(tableName_)
+        ? QStringLiteral("SELECT * FROM %1").arg(tableName_)
         : selectQuery_.trimmed();
 
     if(!filter_.trimmed().isEmpty())
-        query += " WHERE " + filter_.trimmed();
+        query += QStringLiteral(" WHERE ") + filter_.trimmed();
 
     if(sortColumn_ >= 0) {
         const QString col = emptyRecord_.fieldName(sortColumn_);
         if (!col.isEmpty()) {
             switch(order_) {
             case Qt::AscendingOrder:
-                query += QString(" ORDER BY %1").arg(col);
+                query += QStringLiteral(" ORDER BY %1").arg(col);
                 break;
             case Qt::DescendingOrder:
-                query += QString(" ORDER BY %1 DESC").arg(col);
+                query += QStringLiteral(" ORDER BY %1 DESC").arg(col);
                 break;
             default:
                 break;
@@ -253,7 +253,7 @@ void AsyncSqlTableModel::select() {
     }
 
     if(limit_ >= 0)
-        query += " LIMIT " + QString::number(limit_);
+        query += QStringLiteral(" LIMIT ") + QString::number(limit_);
 
     if(records_.count())
         removeRows(0, records_.count());
@@ -277,7 +277,7 @@ void AsyncSqlTableModel::select() {
         request.setRunBefore([this](QSqlDatabase db){ onInit(db); });
     }
 
-    emit execute(request);
+    Q_EMIT execute(request);
 }
 
 bool AsyncSqlTableModel::getResults(const QueryResult &result) {
@@ -293,11 +293,11 @@ bool AsyncSqlTableModel::getResults(const QueryResult &result) {
         error_ = result.getError();
 
         if(result.getRequestType() == QueryRequest::Select)
-            emit selected(false);
+            Q_EMIT selected(false);
         else if(result.getRequestType() == QueryRequest::CustomOperation)
-            emit executed(false);
+            Q_EMIT executed(false);
         else
-            emit submitted(false);
+            Q_EMIT submitted(false);
 
         //qDebug() << "AsyncSqlTableModel: Error discovered.";
         submitCalled_ = false;
@@ -318,7 +318,7 @@ bool AsyncSqlTableModel::getResults(const QueryResult &result) {
         emptyRecord_ = result.getRecord();
 
         if(!selectedSignalSuppressed_)
-            emit selected(true);
+            Q_EMIT selected(true);
         endResetModel();
     }
         break;
@@ -336,7 +336,7 @@ bool AsyncSqlTableModel::getResults(const QueryResult &result) {
     case QueryRequest::CommitTransaction:
         break;
     case QueryRequest::CustomOperation:
-        emit executed(true);
+        Q_EMIT executed(true);
         break;
     case QueryRequest::Command:
         break;
@@ -347,7 +347,7 @@ bool AsyncSqlTableModel::getResults(const QueryResult &result) {
 
     if(!insertedRows_.count() && !updatedRecordMap_.count() && !removedRows_.count() && submitCalled_) {
         submitCalled_ = false;
-        emit submitted(true);
+        Q_EMIT submitted(true);
     }
 
     return true;
@@ -432,7 +432,7 @@ void AsyncSqlTableModel::setCurrentRow(int row)
         return;
 
     currentRow_ = row;
-    emit currentRowChanged(row);
+    Q_EMIT currentRowChanged(row);
 }
 
 int AsyncSqlTableModel::currentRow() const
@@ -446,13 +446,13 @@ QVariant AsyncSqlTableModel::field(const QString &columnName) const
 }
 
 void AsyncSqlTableModel::beginTransaction() {
-    QueryRequest request(this, "", tableName_, QueryRequest::BeginTransaction);
-    emit execute(request);
+    QueryRequest request(this, QString(), tableName_, QueryRequest::BeginTransaction);
+    Q_EMIT execute(request);
 }
 
 void AsyncSqlTableModel::commitTransaction() {
-    QueryRequest request(this, "", tableName_, QueryRequest::CommitTransaction);
-    emit execute(request);
+    QueryRequest request(this, QString(), tableName_, QueryRequest::CommitTransaction);
+    Q_EMIT execute(request);
 }
 
 bool AsyncSqlTableModel::validateModel() {
@@ -462,7 +462,7 @@ bool AsyncSqlTableModel::validateModel() {
 // WARNING: This function would only work if the primary key is not changed!!!
 void AsyncSqlTableModel::submitAll() {
     if(insertedRows_.isEmpty() && updatedRecordMap_.isEmpty() && removedRows_.isEmpty()) {
-        emit submitted(true);
+        Q_EMIT submitted(true);
         return;
     }
     if(!validateModel())
@@ -495,7 +495,7 @@ void AsyncSqlTableModel::submitAll() {
         request.setRequestType(QueryRequest::Update);
         records = updatedRecordMap_.values();
         request.setRecords(records);
-        emit execute(request);
+        Q_EMIT execute(request);
     }
 
 
@@ -508,7 +508,7 @@ void AsyncSqlTableModel::submitAll() {
             records << this->records_.at(insertedRows_.at(i));
         }
         request.setRecords(records);
-        emit execute(request);
+        Q_EMIT execute(request);
         records.clear();
     }
 
@@ -519,7 +519,7 @@ void AsyncSqlTableModel::submitAll() {
         for(int i = 0; i < removedRows_.count(); ++i)
             records << this->records_.at(removedRows_.at(i));
         request.setRecords(records);
-        emit execute(request);
+        Q_EMIT execute(request);
         records.clear();
     }
 
@@ -595,7 +595,7 @@ void AsyncSqlTableModel::setBusy(bool b)
         return;
 
     busy_ = b;
-    emit busyChanged(b);
+    Q_EMIT busyChanged(b);
 }
 
 void AsyncSqlTableModel::setLimit(int limit) {

@@ -41,18 +41,10 @@ target_include_directories(asyncsql PUBLIC
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/asyncsql>
 )
 
-# The library uses standard Qt keywords (signals/slots/emit), bare string
-# literals, and C++ exceptions — all incompatible with KDE's strict compiler
-# flags.  Undefine/restore them for this target's own translation units only.
-target_compile_options(asyncsql PRIVATE
-    -UQT_NO_KEYWORDS
-    -UQT_NO_CAST_FROM_ASCII
-    -UQT_NO_CAST_FROM_BYTEARRAY
-    -UQT_NO_CAST_TO_ASCII
-    -UQT_USE_QSTRINGBUILDER
-    -UQT_STRICT_ITERATORS
-    -fexceptions
-)
+# The library uses C++ exceptions intentionally (DatabaseException is thrown
+# inside custom-operation lambdas and caught by QueryWorker).  KDE's compiler
+# settings disable exceptions globally, so re-enable them for this target.
+target_compile_options(asyncsql PRIVATE -fexceptions)
 
 # ---- Examples ----
 # To build examples: cmake -DBUILD_EXAMPLES=ON ..
