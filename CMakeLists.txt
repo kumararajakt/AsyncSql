@@ -41,41 +41,62 @@ target_include_directories(asyncsql PUBLIC
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
 )
 
-# ---- Widgets example ----
+# ---- Examples ----
+# To build examples: cmake -DBUILD_EXAMPLES=ON ..
 
-if(Qt6Gui_FOUND AND Qt6Widgets_FOUND)
-    add_executable(AsyncSqlViewer
-        examples/databaseviewer/main.cpp
-        examples/databaseviewer/mainwindow.cpp
-        examples/databaseviewer/mainwindow.h
-        examples/databaseviewer/optionsdialog.cpp
-        examples/databaseviewer/optionsdialog.h
-        examples/databaseviewer/mainwindow.ui
-        examples/databaseviewer/optionsdialog.ui
-    )
+option(BUILD_EXAMPLES "Build example applications" OFF)
 
-    target_link_libraries(AsyncSqlViewer PRIVATE
-        asyncsql
-        Qt6::Gui
-        Qt6::Widgets
-    )
+if(BUILD_EXAMPLES)
 
-    target_include_directories(AsyncSqlViewer PRIVATE
-        ${CMAKE_CURRENT_SOURCE_DIR}/examples/databaseviewer
-    )
-endif()
+    # Widgets example
+    if(Qt6Gui_FOUND AND Qt6Widgets_FOUND)
+        add_executable(AsyncSqlViewer
+            examples/databaseviewer/main.cpp
+            examples/databaseviewer/mainwindow.cpp
+            examples/databaseviewer/mainwindow.h
+            examples/databaseviewer/optionsdialog.cpp
+            examples/databaseviewer/optionsdialog.h
+            examples/databaseviewer/mainwindow.ui
+            examples/databaseviewer/optionsdialog.ui
+        )
 
-# ---- QML example ----
+        target_link_libraries(AsyncSqlViewer PRIVATE
+            asyncsql
+            Qt6::Gui
+            Qt6::Widgets
+        )
 
-if(Qt6Qml_FOUND AND Qt6Quick_FOUND)
-    add_executable(AsyncSqlQml
-        examples/qmlviewer/main.cpp
-        examples/qmlviewer/qml.qrc
-    )
+        target_include_directories(AsyncSqlViewer PRIVATE
+            ${CMAKE_CURRENT_SOURCE_DIR}/examples/databaseviewer
+        )
+    endif()
 
-    target_link_libraries(AsyncSqlQml PRIVATE
-        asyncsql
-        Qt6::Qml
-        Qt6::Quick
-    )
-endif()
+    # QML table viewer example
+    if(Qt6Qml_FOUND AND Qt6Quick_FOUND)
+        add_executable(AsyncSqlQml
+            examples/qmlviewer/main.cpp
+            examples/qmlviewer/qml.qrc
+        )
+
+        target_link_libraries(AsyncSqlQml PRIVATE
+            asyncsql
+            Qt6::Qml
+            Qt6::Quick
+        )
+    endif()
+
+    # QML list viewer example (AsyncSqlListModel)
+    if(Qt6Qml_FOUND AND Qt6Quick_FOUND)
+        add_executable(AsyncSqlListViewer
+            examples/listviewer/main.cpp
+            examples/listviewer/qml.qrc
+        )
+
+        target_link_libraries(AsyncSqlListViewer PRIVATE
+            asyncsql
+            Qt6::Qml
+            Qt6::Quick
+        )
+    endif()
+
+endif() # BUILD_EXAMPLES
