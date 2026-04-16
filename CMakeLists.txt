@@ -38,7 +38,20 @@ add_library(asyncsql STATIC
 target_link_libraries(asyncsql PUBLIC Qt6::Core Qt6::Sql)
 
 target_include_directories(asyncsql PUBLIC
-    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/asyncsql>
+)
+
+# The library uses standard Qt keywords (signals/slots/emit), bare string
+# literals, and C++ exceptions — all incompatible with KDE's strict compiler
+# flags.  Undefine/restore them for this target's own translation units only.
+target_compile_options(asyncsql PRIVATE
+    -UQT_NO_KEYWORDS
+    -UQT_NO_CAST_FROM_ASCII
+    -UQT_NO_CAST_FROM_BYTEARRAY
+    -UQT_NO_CAST_TO_ASCII
+    -UQT_USE_QSTRINGBUILDER
+    -UQT_STRICT_ITERATORS
+    -fexceptions
 )
 
 # ---- Examples ----
