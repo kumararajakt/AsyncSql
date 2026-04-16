@@ -40,7 +40,7 @@ public:
     void setLastInsertId(QVariant id);
     QVariant getLastInsertId() const;
 
-    void setStatus(bool successful, const QString &msg = "");
+    void setStatus(bool successful, const QString &msg = QString());
     bool isSuccessful() const;
     QString getStatusMsg();
 private:

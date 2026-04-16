@@ -3,22 +3,21 @@
 #include "queryresult.h"
 #include "querythread.h"
 #include <QSqlDatabase>
-#include <algorithm>
 
 using namespace AsyncSql;
 
 AsyncSqlTableModel::AsyncSqlTableModel(QObject *parent) :
-    limit_(-1),
-    sortColumn_(-1),
+    QAbstractTableModel(parent),
     order_(Qt::AscendingOrder),
-    selectedSignalSuppressed_(false),
-    error_(QSqlError()),
+    sortColumn_(-1),
+    limit_(-1),
     submitCalled_(false),
-    currentRow_(-1),
+    error_(QSqlError()),
     foreignKeyFlag_(true),
+    selectedSignalSuppressed_(false),
     initDone_(false),
-    busy_(false),
-    QAbstractTableModel(parent)
+    currentRow_(-1),
+    busy_(false)
 {
     connect(this, SIGNAL(execute(const QueryRequest &)),
             &QueryThread::instance(), SLOT(execute(const QueryRequest &)));
@@ -148,7 +147,7 @@ bool AsyncSqlTableModel::setData(const QModelIndex &index, const QVariant &value
     return true;
 }
 
-bool AsyncSqlTableModel::setHeaderData(int section, Qt::Orientation orientation, const QVariant& value, int) {
+bool AsyncSqlTableModel::setHeaderData(int, Qt::Orientation, const QVariant &, int) {
     return false;
 }
 
@@ -238,15 +237,18 @@ void AsyncSqlTableModel::select() {
         query += " WHERE " + filter_.trimmed();
 
     if(sortColumn_ >= 0) {
-        switch(order_) {
-        case Qt::AscendingOrder:
-            query += QString(" ORDER BY %1");
-            break;
-        case Qt::DescendingOrder:
-            query += QString(" ORDER BY %1 DESC");
-            break;
-        default:
-            break;
+        const QString col = emptyRecord_.fieldName(sortColumn_);
+        if (!col.isEmpty()) {
+            switch(order_) {
+            case Qt::AscendingOrder:
+                query += QString(" ORDER BY %1").arg(col);
+                break;
+            case Qt::DescendingOrder:
+                query += QString(" ORDER BY %1 DESC").arg(col);
+                break;
+            default:
+                break;
+            }
         }
     }
 
@@ -468,16 +470,9 @@ void AsyncSqlTableModel::submitAll() {
     if(submitCalled_)
         return;
 
-//    if(transactionState == -1) {
-//        insertedRows_ = originalInsertedRows_;
-//        updatedRecordMap_ = originalUpdatedRecordMap_;
-//        removedRows_ = originalRemovedRows_;
-//    }
-//    else {
-        originalUpdatedRecordMap_ = updatedRecordMap_;
-        originalInsertedRows_ = insertedRows_;
-        originalRemovedRows_ = removedRows_;
-    //}
+    originalUpdatedRecordMap_ = updatedRecordMap_;
+    originalInsertedRows_ = insertedRows_;
+    originalRemovedRows_ = removedRows_;
 
     qDebug() << "For " << tableName_ << ":";
     qDebug() << "What are the updated rows? " << updatedRecordMap_.keys();

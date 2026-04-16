@@ -10,7 +10,7 @@ class DatabaseException : std::exception
 {
 public:
     enum ErrorCode {FailedToCommit = 10000, DuplicateEntry};
-    DatabaseException(const QSqlError &e, const QString userMsg = "") :
+    DatabaseException(const QSqlError &e, const QString userMsg = QString()) :
         error(e),
         code(static_cast<int>(e.type())),
         msg(e.text())

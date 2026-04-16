@@ -3,22 +3,21 @@
 #include "queryresult.h"
 #include "querythread.h"
 #include <QSqlDatabase>
-#include <algorithm>
 
 using namespace AsyncSql;
 
 AsyncSqlListModel::AsyncSqlListModel(QObject *parent) :
-    limit_(-1),
-    sortColumn_(-1),
+    QAbstractListModel(parent),
     order_(Qt::AscendingOrder),
-    selectedSignalSuppressed_(false),
-    error_(QSqlError()),
+    sortColumn_(-1),
+    limit_(-1),
     submitCalled_(false),
-    currentRow_(-1),
+    error_(QSqlError()),
     foreignKeyFlag_(true),
+    selectedSignalSuppressed_(false),
     initDone_(false),
-    busy_(false),
-    QAbstractListModel(parent)
+    currentRow_(-1),
+    busy_(false)
 {
     connect(this, SIGNAL(execute(const QueryRequest &)),
             &QueryThread::instance(), SLOT(execute(const QueryRequest &)));
@@ -70,12 +69,24 @@ bool AsyncSqlListModel::setData(const QModelIndex &index, const QVariant &value,
 {
     if (records_.isEmpty())
         return false;
-    if (!index.isValid() || role != Qt::EditRole || index.row() < 0 || index.row() >= records_.count()
-            || index.column() < 0 || index.column() >= records_.first().count())
+    if (!index.isValid() || index.row() < 0 || index.row() >= records_.count())
+        return false;
+
+    // For a list model the column is always 0; derive the actual field column
+    // from the role (UserRole+1 = column 0, UserRole+2 = column 1, …).
+    int col = -1;
+    if (role >= Qt::UserRole + 1 && role <= Qt::UserRole + emptyRecord_.count())
+        col = role - Qt::UserRole - 1;
+    else if (role == Qt::EditRole)
+        col = 0;
+    else
+        return false;
+
+    if (col < 0 || col >= records_.first().count())
         return false;
 
     QSqlRecord rec = records_[index.row()];
-    rec.setValue(index.column(), value);
+    rec.setValue(col, value);
     records_[index.row()] = rec;
 
     if (!insertedRows_.contains(index.row()) && !removedRows_.contains(index.row()) &&
@@ -85,9 +96,9 @@ bool AsyncSqlListModel::setData(const QModelIndex &index, const QVariant &value,
         for (int i = 0; i < updated.count(); ++i)
             updated.setGenerated(i, false);
         updated.setValue(primaryIndex_.fieldName(0),
-                         index.sibling(index.row(), updated.indexOf(primaryIndex_.fieldName(0))).data(Qt::EditRole));
-        updated.setValue(index.column(), value);
-        updated.setGenerated(index.column(), true);
+                         records_[index.row()].value(primaryIndex_.fieldName(0)));
+        updated.setValue(col, value);
+        updated.setGenerated(col, true);
         updatedRecordMap_.insert(index.row(), updated);
     }
     else if (!insertedRows_.contains(index.row()) && !removedRows_.contains(index.row()) &&
@@ -95,9 +106,9 @@ bool AsyncSqlListModel::setData(const QModelIndex &index, const QVariant &value,
     {
         QSqlRecord updated(updatedRecordMap_.value(index.row()));
         updated.setValue(primaryIndex_.fieldName(0),
-                         this->index(index.row(), updated.indexOf(primaryIndex_.fieldName(0))).data(Qt::EditRole));
-        updated.setValue(index.column(), value);
-        updated.setGenerated(index.column(), true);
+                         records_[index.row()].value(primaryIndex_.fieldName(0)));
+        updated.setValue(col, value);
+        updated.setGenerated(col, true);
         updatedRecordMap_.insert(index.row(), updated);
     }
 
@@ -148,15 +159,18 @@ void AsyncSqlListModel::select()
         query += " WHERE " + filter_.trimmed();
 
     if (sortColumn_ >= 0) {
-        switch (order_) {
-        case Qt::AscendingOrder:
-            query += QString(" ORDER BY %1");
-            break;
-        case Qt::DescendingOrder:
-            query += QString(" ORDER BY %1 DESC");
-            break;
-        default:
-            break;
+        const QString col = emptyRecord_.fieldName(sortColumn_);
+        if (!col.isEmpty()) {
+            switch (order_) {
+            case Qt::AscendingOrder:
+                query += QString(" ORDER BY %1").arg(col);
+                break;
+            case Qt::DescendingOrder:
+                query += QString(" ORDER BY %1 DESC").arg(col);
+                break;
+            default:
+                break;
+            }
         }
     }
 
@@ -194,9 +208,6 @@ bool AsyncSqlListModel::getResults(const QueryResult &result)
         return false;
 
     setBusy(false);
-
-    if (error_.isValid())
-        return false;
 
     if (result.getError().isValid()) {
         error_ = result.getError();
