@@ -379,6 +379,10 @@ void QueryWorker::unlockTables()
 }
 
 QueryWorker::~QueryWorker() {
+    m_database.close();
+    m_database = QSqlDatabase();
+    if (!connectionName.isEmpty())
+        QSqlDatabase::removeDatabase(connectionName);
 }
 
 QString QueryWorker::getSqliteConnectionName()

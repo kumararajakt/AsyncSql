@@ -20,7 +20,10 @@ const QueryThread &QueryThread::instance()
     if(!this_thread)
     {
         this_thread = new QueryThread();
-        connect(QCoreApplication::instance(), SIGNAL(aboutToQuit()), this_thread, SLOT(quit()));
+        QObject::connect(QCoreApplication::instance(), &QCoreApplication::aboutToQuit, [t = this_thread]() {
+            t->quit();
+            t->wait();
+        });
         this_thread->start();
     }
 
@@ -45,6 +48,9 @@ void QueryThread::run() {
             this, SIGNAL(queryFinished(const QueryResult &)));
 
     exec(); // start our own event loop
+
+    delete m_worker;
+    m_worker = nullptr;
 }
 
 void QueryThread::execute(const QueryRequest &request)
