@@ -3,6 +3,7 @@ project(AsyncSql VERSION 1.0.0 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTOUIC ON)
 set(CMAKE_AUTORCC ON)
@@ -38,6 +39,7 @@ add_library(asyncsql STATIC
 target_link_libraries(asyncsql PUBLIC Qt6::Core Qt6::Sql)
 
 target_include_directories(asyncsql PUBLIC
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/asyncsql>
 )
 
