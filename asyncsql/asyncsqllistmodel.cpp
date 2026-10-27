@@ -74,6 +74,7 @@ bool AsyncSqlListModel::setData(const QModelIndex &index, const QVariant &value,
         return false;
 
     record.setValue(fieldCol, value);
+    record.setGenerated(fieldCol, true);
     records_[index.row()] = record;
     updatedRecordMap_.insert(index.row(), record);
 

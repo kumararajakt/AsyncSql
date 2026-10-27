@@ -78,6 +78,7 @@ bool AsyncSqlTableModel::setData(const QModelIndex &index, const QVariant &value
         return false;
 
     record.setValue(index.column(), value);
+    record.setGenerated(index.column(), true);
     records_[index.row()] = record;
     updatedRecordMap_.insert(index.row(), record);
 

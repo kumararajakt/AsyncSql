@@ -109,3 +109,49 @@ if(BUILD_EXAMPLES)
     endif()
 
 endif() # BUILD_EXAMPLES
+
+# ---- Testing ----
+option(BUILD_TESTING "Build the test suite" ON)
+
+if(BUILD_TESTING)
+    find_package(Qt6 OPTIONAL_COMPONENTS Test)
+    if(Qt6Test_FOUND)
+        enable_testing()
+
+        add_executable(tst_asyncsql
+            tests/tst_asyncsql.cpp
+        )
+
+        target_link_libraries(tst_asyncsql PRIVATE
+            asyncsql
+            Qt6::Core
+            Qt6::Sql
+            Qt6::Test
+        )
+
+        add_test(NAME tst_asyncsql COMMAND tst_asyncsql)
+    endif()
+endif()
+
+# ---- Installation rules ----
+include(GNUInstallDirs)
+
+install(TARGETS asyncsql
+    EXPORT AsyncSqlTargets
+    ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
+    LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+)
+
+install(FILES
+    asyncsql/asyncsqlbasemodel.h
+    asyncsql/asyncsqltablemodel.h
+    asyncsql/asyncsqllistmodel.h
+    asyncsql/asyncmodelregister.h
+    asyncsql/databaseconnection.h
+    asyncsql/databaseexception.h
+    asyncsql/queryrequest.h
+    asyncsql/queryresult.h
+    asyncsql/querythread.h
+    asyncsql/queryworker.h
+    DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/asyncsql
+)

@@ -18,7 +18,9 @@ AsyncSqlBaseModel::AsyncSqlBaseModel(QObject *parent) :
     selectedSignalSuppressed_(false),
     initDone_(false),
     currentRow_(-1),
-    busy_(false)
+    busy_(false),
+    chunkSize_(-1),
+    moreAvailable_(false)
 {
     connect(this, SIGNAL(execute(const QueryRequest &)),
             &QueryThread::instance(), SLOT(execute(const QueryRequest &)));
@@ -139,8 +141,12 @@ bool AsyncSqlBaseModel::setRecord(int row, const QSqlRecord &record)
     if (row < 0 || row >= records_.count() || record.count() != this->record().count())
         return false;
 
-    records_[row] = record;
-    updatedRecordMap_.insert(row, record);
+    QSqlRecord rec = record;
+    for (int i = 0; i < rec.count(); ++i)
+        rec.setGenerated(i, true);
+
+    records_[row] = rec;
+    updatedRecordMap_.insert(row, rec);
 
     Q_EMIT dataChanged(index(row, 0), index(row, columnCount() - 1));
     return true;
@@ -219,15 +225,44 @@ int AsyncSqlBaseModel::currentRow() const
 
 QVariant AsyncSqlBaseModel::field(const QString &columnName) const
 {
-    return data(index(currentRow_, fieldIndex(columnName)), Qt::DisplayRole);
+    if (currentRow_ < 0 || currentRow_ >= records_.count())
+        return QVariant();
+
+    return record(currentRow_).value(columnName);
 }
 
-void AsyncSqlBaseModel::customInsert(const QVariantMap &)
+void AsyncSqlBaseModel::customInsert(const QVariantMap &data)
 {
+    if (data.isEmpty() || emptyRecord_.isEmpty())
+        return;
+
+    QSqlRecord newRecord = emptyRecord_;
+    for (auto it = data.constBegin(); it != data.constEnd(); ++it) {
+        int idx = fieldIndex(it.key());
+        if (idx >= 0) {
+            newRecord.setValue(idx, it.value());
+            newRecord.setGenerated(idx, true);
+        }
+    }
+
+    appendRecord(newRecord);
 }
 
-void AsyncSqlBaseModel::customUpdate(const QVariantMap &)
+void AsyncSqlBaseModel::customUpdate(const QVariantMap &data)
 {
+    if (data.isEmpty() || currentRow_ < 0 || currentRow_ >= records_.count())
+        return;
+
+    QSqlRecord currentRec = record(currentRow_);
+    for (auto it = data.constBegin(); it != data.constEnd(); ++it) {
+        int idx = fieldIndex(it.key());
+        if (idx >= 0) {
+            currentRec.setValue(idx, it.value());
+            currentRec.setGenerated(idx, true);
+        }
+    }
+
+    setRecord(currentRow_, currentRec);
 }
 
 bool AsyncSqlBaseModel::isBusy() const
@@ -310,6 +345,64 @@ void AsyncSqlBaseModel::commitTransaction()
     Q_EMIT execute(request);
 }
 
+void AsyncSqlBaseModel::setChunkSize(int size)
+{
+    if (chunkSize_ == size)
+        return;
+    chunkSize_ = size;
+    Q_EMIT chunkSizeChanged(size);
+}
+
+int AsyncSqlBaseModel::chunkSize() const
+{
+    return chunkSize_;
+}
+
+bool AsyncSqlBaseModel::canFetchMore(const QModelIndex &parent) const
+{
+    if (parent.isValid() || chunkSize_ <= 0)
+        return false;
+
+    return moreAvailable_;
+}
+
+void AsyncSqlBaseModel::fetchMore(const QModelIndex &parent)
+{
+    if (parent.isValid() || chunkSize_ <= 0 || !moreAvailable_ || isBusy())
+        return;
+
+    QString query = selectQuery_.trimmed().isEmpty()
+        ? QStringLiteral("SELECT * FROM %1").arg(tableName_)
+        : selectQuery_.trimmed();
+
+    if (!filter_.trimmed().isEmpty())
+        query += QStringLiteral(" WHERE ") + filter_.trimmed();
+
+    if (sortColumn_ >= 0) {
+        const QString col = emptyRecord_.fieldName(sortColumn_);
+        if (!col.isEmpty()) {
+            switch (order_) {
+            case Qt::AscendingOrder:
+                query += QStringLiteral(" ORDER BY %1").arg(col);
+                break;
+            case Qt::DescendingOrder:
+                query += QStringLiteral(" ORDER BY %1 DESC").arg(col);
+                break;
+            default:
+                break;
+            }
+        }
+    }
+
+    query += QStringLiteral(" LIMIT %1 OFFSET %2").arg(chunkSize_).arg(records_.count());
+
+    setBusy(true);
+
+    QueryRequest request(this, query, tableName_, QueryRequest::FetchMore);
+    request.setSortColumn(sortColumn_);
+    Q_EMIT execute(request);
+}
+
 void AsyncSqlBaseModel::select()
 {
     QString query = selectQuery_.trimmed().isEmpty()
@@ -335,8 +428,15 @@ void AsyncSqlBaseModel::select()
         }
     }
 
-    if (limit_ > 0)
+    if (chunkSize_ > 0) {
+        query += QStringLiteral(" LIMIT %1 OFFSET 0").arg(chunkSize_);
+        moreAvailable_ = true;
+    } else if (limit_ > 0) {
         query += QStringLiteral(" LIMIT %1").arg(limit_);
+        moreAvailable_ = false;
+    } else {
+        moreAvailable_ = false;
+    }
 
     originalInsertedRows_.clear();
     originalRemovedRows_.clear();
@@ -419,6 +519,8 @@ bool AsyncSqlBaseModel::getResults(const AsyncSql::QueryResult &result)
 
         if (result.getRequestType() == QueryRequest::Select)
             Q_EMIT selected(false);
+        else if (result.getRequestType() == QueryRequest::FetchMore)
+            Q_EMIT moreFetched(false);
         else if (result.getRequestType() == QueryRequest::CustomOperation)
             Q_EMIT executed(false);
         else
@@ -439,7 +541,26 @@ bool AsyncSqlBaseModel::getResults(const AsyncSql::QueryResult &result)
 
         if (!selectedSignalSuppressed_)
             Q_EMIT selected(true);
+        if (chunkSize_ > 0)
+            moreAvailable_ = (result.getRecords().count() >= chunkSize_);
         endResetModel();
+    }
+        break;
+    case QueryRequest::FetchMore:
+    {
+        const QList<QSqlRecord> newRecords = result.getRecords();
+        if (newRecords.isEmpty()) {
+            moreAvailable_ = false;
+        } else {
+            const int startRow = records_.count();
+            beginInsertRows(QModelIndex(), startRow, startRow + newRecords.count() - 1);
+            records_.append(newRecords);
+            originalRecords_.append(newRecords);
+            if (chunkSize_ > 0 && newRecords.count() < chunkSize_)
+                moreAvailable_ = false;
+            endInsertRows();
+        }
+        Q_EMIT moreFetched(true);
     }
         break;
     case QueryRequest::BatchSubmit:

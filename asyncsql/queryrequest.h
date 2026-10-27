@@ -17,7 +17,7 @@ class QueryRequest
 public:
     enum RequestType {None = -1, Select, Insert, Update, Delete,
                       BeginTransaction, CommitTransaction, Command,
-                      CustomOperation, BatchSubmit};
+                      CustomOperation, BatchSubmit, FetchMore};
     explicit QueryRequest(QObject *receiver = nullptr, const QString &query = QString(), const QString &tableName = QString(),
                           RequestType type = Select);
 

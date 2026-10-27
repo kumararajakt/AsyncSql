@@ -36,6 +36,7 @@ void QueryWorker::execute(const QueryRequest &request)
 
         switch(request.getRequestType()) {
         case QueryRequest::Select:
+        case QueryRequest::FetchMore:
             select(request);
             break;
         case QueryRequest::Insert:

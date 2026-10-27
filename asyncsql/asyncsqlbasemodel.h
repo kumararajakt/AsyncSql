@@ -14,6 +14,7 @@ class AsyncSqlBaseModel : public QAbstractItemModel
     Q_OBJECT
     Q_PROPERTY(int currentRow READ currentRow WRITE setCurrentRow NOTIFY currentRowChanged)
     Q_PROPERTY(bool busy READ isBusy NOTIFY busyChanged)
+    Q_PROPERTY(int chunkSize READ chunkSize WRITE setChunkSize NOTIFY chunkSizeChanged)
 public:
     explicit AsyncSqlBaseModel(QObject *parent = nullptr);
     virtual ~AsyncSqlBaseModel();
@@ -25,6 +26,12 @@ public:
     virtual QModelIndex parent(const QModelIndex &child = QModelIndex()) const override;
     virtual Qt::ItemFlags flags(const QModelIndex &index) const override;
     virtual int rowCount(const QModelIndex &parent = QModelIndex()) const override;
+
+    virtual bool canFetchMore(const QModelIndex &parent = QModelIndex()) const override;
+    virtual void fetchMore(const QModelIndex &parent = QModelIndex()) override;
+
+    void setChunkSize(int size);
+    int chunkSize() const;
 
     int fieldIndex(const QString &) const;
 
@@ -104,6 +111,8 @@ protected:
     bool initDone_;
     int currentRow_;
     bool busy_;
+    int chunkSize_;
+    bool moreAvailable_;
 
 Q_SIGNALS:
     void execute(const QueryRequest &);
@@ -112,6 +121,8 @@ Q_SIGNALS:
     void executed(bool successful);
     void busyChanged(bool);
     void currentRowChanged(int);
+    void chunkSizeChanged(int);
+    void moreFetched(bool successful);
 
 public Q_SLOTS:
     virtual bool getResults(const AsyncSql::QueryResult &);

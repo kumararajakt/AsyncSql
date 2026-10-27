@@ -4,6 +4,7 @@
 #include "queryrequest.h"
 #include "queryresult.h"
 #include <QCoreApplication>
+#include <mutex>
 
 using namespace AsyncSql;
 
@@ -13,38 +14,14 @@ QueryThread::TransactionState QueryThread::transactionState = QueryThread::Unset
 QueryThread::QueryThread(QObject *parent) :
     QThread(parent)
 {
-}
-
-const QueryThread &QueryThread::instance()
-{
-    if(!this_thread)
-    {
-        this_thread = new QueryThread();
-        QObject::connect(QCoreApplication::instance(), &QCoreApplication::aboutToQuit, [t = this_thread]() {
-            t->quit();
-            t->wait();
-        });
-        this_thread->start();
-    }
-
-    return *this_thread;
-}
-
-void QueryThread::run() {
-    qDebug() << "Query thread started.";
-    // Create worker object within the context of the new thread
-    m_worker = new QueryWorker();
-
-    // forward to the worker: a 'queued connection'!
-    connect(this, SIGNAL(queue(const QueryRequest &)),
-            m_worker, SLOT(execute(const QueryRequest &)));
-
-    // first, make the object system aware
     qRegisterMetaType<QueryRequest>();
     qRegisterMetaType<QueryResult>();
     qRegisterMetaType<AsyncSql::QueryResult>();
 
-    // forward a signal back out, and dispatch directly to the target receiver
+    m_worker = new QueryWorker();
+    m_worker->moveToThread(this);
+
+    connect(this, &QueryThread::queue, m_worker, &QueryWorker::execute);
     connect(m_worker, &QueryWorker::resultsReady, this, [this](const QueryResult &result) {
         Q_EMIT queryFinished(result);
 
@@ -56,10 +33,31 @@ void QueryThread::run() {
         }
     });
 
-    exec(); // start our own event loop
+    connect(this, &QThread::finished, m_worker, &QObject::deleteLater);
+}
 
-    delete m_worker;
-    m_worker = nullptr;
+const QueryThread &QueryThread::instance()
+{
+    static std::once_flag initFlag;
+    std::call_once(initFlag, []() {
+        this_thread = new QueryThread();
+        if (QCoreApplication::instance()) {
+            QObject::connect(QCoreApplication::instance(), &QCoreApplication::aboutToQuit, [t = this_thread]() {
+                t->quit();
+                t->wait();
+                delete t;
+                this_thread = nullptr;
+            });
+        }
+        this_thread->start();
+    });
+
+    return *this_thread;
+}
+
+void QueryThread::run() {
+    qDebug() << "Query thread started.";
+    exec();
 }
 
 void QueryThread::execute(const QueryRequest &request)
