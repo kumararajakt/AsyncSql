@@ -10,6 +10,7 @@ DESTDIR = $$PWD/../lib
 
 SOURCES += \
     asyncsqltablemodel.cpp \
+    asyncsqllistmodel.cpp \
     asyncmodelregister.cpp \
     databaseconnection.cpp \
     databaseexception.cpp \
@@ -20,6 +21,7 @@ SOURCES += \
 
 HEADERS += \
     asyncsqltablemodel.h \
+    asyncsqllistmodel.h \
     asyncmodelregister.h \
     databaseconnection.h \
     databaseexception.h \

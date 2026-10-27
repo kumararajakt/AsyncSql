@@ -4,7 +4,7 @@
 
 ## Bugs
 
-- [ ] `setOriginalRecords()` sets `records_` instead of `originalRecords_` — copy-paste error (`asyncsqltablemodel.cpp:571`)
+- [x] `setOriginalRecords()` sets `records_` instead of `originalRecords_` — copy-paste error (`asyncsqltablemodel.cpp:571`)
 - [ ] `submitAll()` assumes a single-column primary key everywhere (`primaryIndex_.fieldName(0)`) — composite keys are silently broken (`asyncsqltablemodel.cpp:123,136`, `queryworker.cpp:200,275`)
 
 ## Planned
@@ -44,3 +44,8 @@
 - [x] Updated README with linking instructions
 - [x] `virtual roleNames()` override — required for QML role-based access in subclasses
 - [x] KDE compiler-flag compatibility — CMake target undefines `QT_NO_KEYWORDS`, `QT_NO_CAST_FROM_ASCII`, etc. and re-enables exceptions so the library compiles cleanly under KDE's strict settings
+- [x] Fixed `setOriginalRecords()` setting `records_` instead of `originalRecords_` in `AsyncSqlTableModel`
+- [x] Guarded `SET autocommit` in `QueryWorker` to execute only for MySQL connections (avoiding SQLite syntax error)
+- [x] Restricted `setLastRecord()` to insert operations and avoided redundant queries on `Select`
+- [x] Added `asyncsqllistmodel` to `asyncsql/asyncsql.pro`
+- [x] Fixed public include directory in `CMakeLists.txt` for example builds and external consumers

@@ -574,7 +574,7 @@ void AsyncSqlTableModel::setRecords(const QList<QSqlRecord> &records) {
 }
 
 void AsyncSqlTableModel::setOriginalRecords(const QList<QSqlRecord> &records) {
-    this->records_ = records;
+    this->originalRecords_ = records;
 }
 
 QList<QSqlRecord> AsyncSqlTableModel::records() const {

@@ -66,7 +66,8 @@ void QueryWorker::execute(const QueryRequest &request)
 
         qDebug() << "QueryWorker: Results processed in" << timer.elapsed() << "milliseconds.";
 
-        setLastRecord(request);
+        if(request.getRequestType() == QueryRequest::Insert)
+            setLastRecord(request);
 
         request.getRunAfter()(m_database);
 
@@ -86,6 +87,10 @@ void QueryWorker::execute(const QueryRequest &request)
         result.clear();
 
         m_database.rollback();
+        if(m_database.driverName() == QLatin1String("QMYSQL")) {
+            QSqlQuery q(m_database);
+            q.exec(QStringLiteral("SET autocommit = 1"));
+        }
     }
     catch(std::exception &e)
     {
@@ -179,6 +184,8 @@ void QueryWorker::select(const QueryRequest &request)
     }
 
     result.setRecords(records);
+    if(!records.isEmpty())
+        result.setLastRecord(records.last());
 }
 
 void QueryWorker::update(const QueryRequest &request)
@@ -283,12 +290,14 @@ void QueryWorker::remove(const QueryRequest &request)
 
 void QueryWorker::startTransaction()
 {
-    QSqlQuery q(m_database);
-    q.prepare(QStringLiteral("SET autocommit = 0"));
+    if(m_database.driverName() == QLatin1String("QMYSQL")) {
+        QSqlQuery q(m_database);
+        q.prepare(QStringLiteral("SET autocommit = 0"));
 
-    if(!q.exec()) {
-        qDebug() << "Failed to set autocommit to false.";
-        throw DatabaseException(m_database.lastError());
+        if(!q.exec()) {
+            qDebug() << "Failed to set autocommit to false.";
+            throw DatabaseException(m_database.lastError());
+        }
     }
 
     if(!m_database.transaction()) {
@@ -306,12 +315,14 @@ void QueryWorker::commitTransaction()
             throw DatabaseException(m_database.lastError());
         }
 
-        QSqlQuery q(m_database);
-        q.prepare(QStringLiteral("SET autocommit = 1"));
+        if(m_database.driverName() == QLatin1String("QMYSQL")) {
+            QSqlQuery q(m_database);
+            q.prepare(QStringLiteral("SET autocommit = 1"));
 
-        if(!q.exec()) {
-            qDebug() << "Failed to set autocommit to true.";
-            throw DatabaseException(m_database.lastError());
+            if(!q.exec()) {
+                qDebug() << "Failed to set autocommit to true.";
+                throw DatabaseException(m_database.lastError());
+            }
         }
     }
     catch(DatabaseException &) {
@@ -336,14 +347,19 @@ void QueryWorker::executeCommand(const QueryRequest &request)
 void QueryWorker::setLastRecord(const QueryRequest &request) {
     if(request.getTableName().trimmed().isEmpty())
         return;
+
+    const QString pkField = m_database.primaryIndex(request.getTableName()).fieldName(0);
+    if(pkField.isEmpty())
+        return;
+
     QSqlQuery q(m_database);
     q.prepare(QStringLiteral("SELECT * FROM %1 ORDER BY %2 DESC LIMIT 1")
-              .arg(request.getTableName(),
-                   m_database.primaryIndex(request.getTableName()).fieldName(0)));
+              .arg(request.getTableName(), pkField));
     if(!q.exec()) {
         qDebug() << "Failed to get last record for table " << request.getTableName();
         qDebug() << q.lastError();
         qDebug() << "Last query: " << q.lastQuery();
+        return;
     }
 
     if(q.first())
