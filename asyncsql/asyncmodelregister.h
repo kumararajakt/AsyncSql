@@ -5,7 +5,7 @@
 #include <QMap>
 
 namespace AsyncSql {
-class AsyncSqlTableModel;
+class AsyncSqlBaseModel;
 
 class AsyncModelRegister : public QObject
 {
@@ -14,19 +14,19 @@ public:
     enum MarkMethod {MarkAfterSelected, MarkAfterSubmitted};
     explicit AsyncModelRegister(QObject *parent = nullptr, MarkMethod method = MarkAfterSelected);
 
-    void addModel(AsyncSqlTableModel *model);
-    bool removeModel(AsyncSqlTableModel *model);
+    void addModel(AsyncSqlBaseModel *model);
+    bool removeModel(AsyncSqlBaseModel *model);
     bool removeAllModels();
     bool isDone() const;
 
-    QList<AsyncSqlTableModel *> models() const;
+    QList<AsyncSqlBaseModel *> models() const;
 Q_SIGNALS:
     void allMarked(bool);
 public Q_SLOTS:
     void mark();
     void clear();
 private:
-    QMap<AsyncSqlTableModel *, bool> modelMap;
+    QMap<AsyncSqlBaseModel *, bool> modelMap;
     MarkMethod method;
     int totalMarked;
 };

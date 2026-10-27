@@ -2,6 +2,7 @@
 #define QUERYREQUEST_H
 
 #include <QObject>
+#include <QPointer>
 #include <QSqlRecord>
 #include <QSqlIndex>
 #include <QVariant>
@@ -16,7 +17,7 @@ class QueryRequest
 public:
     enum RequestType {None = -1, Select, Insert, Update, Delete,
                       BeginTransaction, CommitTransaction, Command,
-                      CustomOperation};
+                      CustomOperation, BatchSubmit};
     explicit QueryRequest(QObject *receiver = nullptr, const QString &query = QString(), const QString &tableName = QString(),
                           RequestType type = Select);
 
@@ -37,6 +38,13 @@ public:
 
     void setRecord(const QSqlRecord &record);
 
+    void setBatchRecords(const QList<QSqlRecord> &inserted,
+                         const QList<QSqlRecord> &updated,
+                         const QList<QSqlRecord> &removed);
+    QList<QSqlRecord> getInsertedRecords() const;
+    QList<QSqlRecord> getUpdatedRecords() const;
+    QList<QSqlRecord> getRemovedRecords() const;
+
     void setPrimaryIndex(const QSqlIndex &);
     QSqlIndex getPrimaryIndex() const;
 
@@ -55,11 +63,14 @@ public:
     void setConnection(const DatabaseConnection &);
     DatabaseConnection getConnection() const;
 private:
-    QObject *receiver;
+    QPointer<QObject> receiver;
     QString tableName;
     QString query;
     RequestType type;
     QList<QSqlRecord> records;
+    QList<QSqlRecord> insertedRecords;
+    QList<QSqlRecord> updatedRecords;
+    QList<QSqlRecord> removedRecords;
     QSqlIndex primaryIndex;
     QVariant primaryValue;
     int sortColumn;

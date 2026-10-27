@@ -42,10 +42,19 @@ void QueryThread::run() {
     // first, make the object system aware
     qRegisterMetaType<QueryRequest>();
     qRegisterMetaType<QueryResult>();
-    // now set up the queued connection
-    // forward a signal back out
-    connect(m_worker, SIGNAL(resultsReady(const QueryResult &)),
-            this, SIGNAL(queryFinished(const QueryResult &)));
+    qRegisterMetaType<AsyncSql::QueryResult>();
+
+    // forward a signal back out, and dispatch directly to the target receiver
+    connect(m_worker, &QueryWorker::resultsReady, this, [this](const QueryResult &result) {
+        Q_EMIT queryFinished(result);
+
+        QObject *receiver = result.getReceiver();
+        if (receiver) {
+            QMetaObject::invokeMethod(receiver, "getResults",
+                                      Qt::QueuedConnection,
+                                      Q_ARG(AsyncSql::QueryResult, result));
+        }
+    });
 
     exec(); // start our own event loop
 

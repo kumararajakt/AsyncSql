@@ -59,6 +59,9 @@ void QueryWorker::execute(const QueryRequest &request)
         case QueryRequest::CustomOperation:
             request.getCustomOperation()(m_database);
             break;
+        case QueryRequest::BatchSubmit:
+            batchSubmit(request);
+            break;
         case QueryRequest::None:
         default:
             break;
@@ -191,21 +194,33 @@ void QueryWorker::select(const QueryRequest &request)
 void QueryWorker::update(const QueryRequest &request)
 {
     QSqlQuery qry(m_database);
+    const QSqlIndex pk = request.getPrimaryIndex();
+    if (pk.count() == 0) {
+        qDebug() << "Cannot update record: table has no primary index:" << request.getTableName();
+        return;
+    }
+
+    QString pkWhere;
+    for (int k = 0; k < pk.count(); ++k) {
+        pkWhere += pk.fieldName(k) + QStringLiteral(" = ?");
+        if (k != pk.count() - 1)
+            pkWhere += QStringLiteral(" AND ");
+    }
 
     for(int i = 0; i < request.getRecords().count(); ++i) {
         QSqlRecord record(request.getRecords().at(i));
-        QString query;
 
         for(int j = 0; j < record.count(); ++j) {
             if(!record.isGenerated(j))
                 continue;
 
-            query = QStringLiteral("UPDATE %1 SET %2 = ? WHERE %3 = ?").arg(request.getTableName(),
+            QString query = QStringLiteral("UPDATE %1 SET %2 = ? WHERE %3").arg(request.getTableName(),
                                                                  record.fieldName(j),
-                                                                 request.getPrimaryIndex().fieldName(0));
+                                                                 pkWhere);
             qry.prepare(query);
             qry.addBindValue(record.value(j));
-            qry.addBindValue(record.value(request.getPrimaryIndex().fieldName(0)));
+            for (int k = 0; k < pk.count(); ++k)
+                qry.addBindValue(record.value(pk.fieldName(k)));
 
             if(!qry.exec()) {
                 qDebug() << "Failed to update record in query worker.";
@@ -268,14 +283,27 @@ void QueryWorker::insert(const QueryRequest &req)
 void QueryWorker::remove(const QueryRequest &request)
 {
     QSqlQuery qry(m_database);
+    const QSqlIndex pk = request.getPrimaryIndex();
+    if (pk.count() == 0) {
+        qDebug() << "Cannot delete record: table has no primary index:" << request.getTableName();
+        return;
+    }
+
+    QString pkWhere;
+    for (int k = 0; k < pk.count(); ++k) {
+        pkWhere += pk.fieldName(k) + QStringLiteral(" = ?");
+        if (k != pk.count() - 1)
+            pkWhere += QStringLiteral(" AND ");
+    }
+
+    const QString query = QStringLiteral("DELETE FROM %1 WHERE %2").arg(request.getTableName(), pkWhere);
 
     for(int i = 0; i < request.getRecords().count(); ++i) {
         QSqlRecord record(request.getRecords().at(i));
 
-        const QString query = QStringLiteral("DELETE FROM %1 WHERE %2 = ?").arg(request.getTableName(),
-                                                                   request.getPrimaryIndex().fieldName(0));
         qry.prepare(query);
-        qry.addBindValue(record.value(request.getPrimaryIndex().fieldName(0)));
+        for (int k = 0; k < pk.count(); ++k)
+            qry.addBindValue(record.value(pk.fieldName(k)));
 
         if(!qry.exec()) {
             qDebug() << "Failed to delete record in query worker.";
@@ -286,6 +314,41 @@ void QueryWorker::remove(const QueryRequest &request)
     }
 
     qDebug() << "Delete successful.";
+}
+
+void QueryWorker::batchSubmit(const QueryRequest &request)
+{
+    startTransaction();
+
+    try {
+        if (!request.getUpdatedRecords().isEmpty()) {
+            QueryRequest updateReq(request);
+            updateReq.setRecords(request.getUpdatedRecords());
+            update(updateReq);
+        }
+
+        if (!request.getInsertedRecords().isEmpty()) {
+            QueryRequest insertReq(request);
+            insertReq.setRecords(request.getInsertedRecords());
+            insert(insertReq);
+        }
+
+        if (!request.getRemovedRecords().isEmpty()) {
+            QueryRequest removeReq(request);
+            removeReq.setRecords(request.getRemovedRecords());
+            remove(removeReq);
+        }
+
+        commitTransaction();
+    }
+    catch (DatabaseException &) {
+        m_database.rollback();
+        if (m_database.driverName() == QLatin1String("QMYSQL")) {
+            QSqlQuery q(m_database);
+            q.exec(QStringLiteral("SET autocommit = 1"));
+        }
+        throw;
+    }
 }
 
 void QueryWorker::startTransaction()

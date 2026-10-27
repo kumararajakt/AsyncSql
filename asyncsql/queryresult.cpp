@@ -67,7 +67,7 @@ void QueryResult::setReceiver(QObject *receiver) {
 }
 
 QObject *QueryResult::getReceiver() const {
-    return receiver;
+    return receiver.data();
 }
 
 void QueryResult::setObjectName(const QString &name)

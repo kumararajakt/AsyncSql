@@ -34,6 +34,7 @@ private:
     void update(const QueryRequest &);
     void insert(const QueryRequest &);
     void remove(const QueryRequest &);
+    void batchSubmit(const QueryRequest &);
     void startTransaction();
     void commitTransaction();
     void executeCommand(const QueryRequest &);

@@ -1,17 +1,17 @@
 #include "asyncmodelregister.h"
-#include "asyncsqltablemodel.h"
+#include "asyncsqlbasemodel.h"
 #include <QDebug>
 
 using namespace AsyncSql;
 
 AsyncModelRegister::AsyncModelRegister(QObject *parent, MarkMethod method) :
-    method(method),
     totalMarked(0),
-    QObject(parent)
+    QObject(parent),
+    method(method)
 {
 }
 
-void AsyncModelRegister::addModel(AsyncSqlTableModel *model) {
+void AsyncModelRegister::addModel(AsyncSqlBaseModel *model) {
     if(modelMap.contains(model))
         return;
 
@@ -24,7 +24,7 @@ void AsyncModelRegister::addModel(AsyncSqlTableModel *model) {
 }
 
 void AsyncModelRegister::mark() {
-    AsyncSqlTableModel *model = qobject_cast<AsyncSqlTableModel *>(sender());
+    AsyncSqlBaseModel *model = qobject_cast<AsyncSqlBaseModel *>(sender());
 
     if(modelMap.value(model))
         return;
@@ -36,7 +36,7 @@ void AsyncModelRegister::mark() {
         Q_EMIT allMarked(true);
 }
 
-bool AsyncModelRegister::removeModel(AsyncSqlTableModel *model) {
+bool AsyncModelRegister::removeModel(AsyncSqlBaseModel *model) {
     if(!modelMap.remove(model))
         return false;
 
@@ -62,7 +62,7 @@ bool AsyncModelRegister::removeAllModels() {
 void AsyncModelRegister::clear() {
     for(int i = 0; i < modelMap.count(); ++i)
     {
-        AsyncSqlTableModel *model = modelMap.keys().at(i);
+        AsyncSqlBaseModel *model = modelMap.keys().at(i);
 
         modelMap.insert(model, false);
     }
@@ -70,7 +70,7 @@ void AsyncModelRegister::clear() {
     totalMarked = 0;
 }
 
-QList<AsyncSqlTableModel *> AsyncModelRegister::models() const {
+QList<AsyncSqlBaseModel *> AsyncModelRegister::models() const {
     return modelMap.keys();
 }
 

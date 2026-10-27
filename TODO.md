@@ -5,7 +5,7 @@
 ## Bugs
 
 - [x] `setOriginalRecords()` sets `records_` instead of `originalRecords_` — copy-paste error (`asyncsqltablemodel.cpp:571`)
-- [ ] `submitAll()` assumes a single-column primary key everywhere (`primaryIndex_.fieldName(0)`) — composite keys are silently broken (`asyncsqltablemodel.cpp:123,136`, `queryworker.cpp:200,275`)
+- [x] `submitAll()` assumes a single-column primary key everywhere (`primaryIndex_.fieldName(0)`) — composite keys are silently broken (`asyncsqltablemodel.cpp:123,136`, `queryworker.cpp:200,275`)
 
 ## Planned
 
@@ -49,3 +49,8 @@
 - [x] Restricted `setLastRecord()` to insert operations and avoided redundant queries on `Select`
 - [x] Added `asyncsqllistmodel` to `asyncsql/asyncsql.pro`
 - [x] Fixed public include directory in `CMakeLists.txt` for example builds and external consumers
+- [x] Extracted common base class `AsyncSqlBaseModel` eliminating ~600 lines of duplicate model logic
+- [x] Atomic batch transactions in `submitAll()` via `QueryRequest::BatchSubmit`
+- [x] Targeted signal dispatching using `QMetaObject::invokeMethod` with `QPointer<QObject>`, eliminating $O(N)$ broadcast wakeups
+- [x] Multi-column composite primary key support in `UPDATE` and `DELETE` queries
+- [x] `AsyncModelRegister` now accepts any `AsyncSqlBaseModel`, supporting both table and list models

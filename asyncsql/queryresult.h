@@ -2,6 +2,7 @@
 #define QUERYRESULT_H
 
 #include <QObject>
+#include <QPointer>
 #include <QtSql>
 #include "queryrequest.h"
 
@@ -45,7 +46,7 @@ public:
     QString getStatusMsg();
 private:
     QueryRequest::RequestType requestType;
-    QObject *receiver;
+    QPointer<QObject> receiver;
     QList<QSqlRecord> records;
     QSqlRecord record;
     QSqlIndex primaryIndex;

@@ -16,6 +16,7 @@ qt_standard_project_setup()
 # ---- AsyncSql library ----
 
 add_library(asyncsql STATIC
+    asyncsql/asyncsqlbasemodel.cpp
     asyncsql/asyncsqltablemodel.cpp
     asyncsql/asyncsqllistmodel.cpp
     asyncsql/asyncmodelregister.cpp
@@ -25,6 +26,7 @@ add_library(asyncsql STATIC
     asyncsql/queryresult.cpp
     asyncsql/querythread.cpp
     asyncsql/queryworker.cpp
+    asyncsql/asyncsqlbasemodel.h
     asyncsql/asyncsqltablemodel.h
     asyncsql/asyncsqllistmodel.h
     asyncsql/asyncmodelregister.h

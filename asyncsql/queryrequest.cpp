@@ -21,7 +21,7 @@ void QueryRequest::setReceiver(QObject *receiver) {
 }
 
 QObject* QueryRequest::getReceiver() const {
-    return receiver;
+    return receiver.data();
 }
 
 void QueryRequest::setTableName(const QString &tableName) {
@@ -59,6 +59,30 @@ QList<QSqlRecord> QueryRequest::getRecords() const {
 void QueryRequest::setRecord(const QSqlRecord &record) {
     this->records.clear();
     this->records << record;
+}
+
+void QueryRequest::setBatchRecords(const QList<QSqlRecord> &inserted,
+                                   const QList<QSqlRecord> &updated,
+                                   const QList<QSqlRecord> &removed)
+{
+    insertedRecords = inserted;
+    updatedRecords = updated;
+    removedRecords = removed;
+}
+
+QList<QSqlRecord> QueryRequest::getInsertedRecords() const
+{
+    return insertedRecords;
+}
+
+QList<QSqlRecord> QueryRequest::getUpdatedRecords() const
+{
+    return updatedRecords;
+}
+
+QList<QSqlRecord> QueryRequest::getRemovedRecords() const
+{
+    return removedRecords;
 }
 
 void QueryRequest::setPrimaryIndex(const QSqlIndex &index) {

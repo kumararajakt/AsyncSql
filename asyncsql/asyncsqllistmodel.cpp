@@ -1,28 +1,10 @@
 #include "asyncsqllistmodel.h"
-#include "queryrequest.h"
-#include "queryresult.h"
-#include "querythread.h"
-#include <QSqlDatabase>
 
 using namespace AsyncSql;
 
 AsyncSqlListModel::AsyncSqlListModel(QObject *parent) :
-    QAbstractListModel(parent),
-    order_(Qt::AscendingOrder),
-    sortColumn_(-1),
-    limit_(-1),
-    submitCalled_(false),
-    error_(QSqlError()),
-    foreignKeyFlag_(true),
-    selectedSignalSuppressed_(false),
-    initDone_(false),
-    currentRow_(-1),
-    busy_(false)
+    AsyncSqlBaseModel(parent)
 {
-    connect(this, SIGNAL(execute(const QueryRequest &)),
-            &QueryThread::instance(), SLOT(execute(const QueryRequest &)));
-    connect(&QueryThread::instance(), SIGNAL(queryFinished(const QueryResult &)),
-            this, SLOT(getResults(const QueryResult &)));
 }
 
 AsyncSqlListModel::~AsyncSqlListModel()
@@ -31,10 +13,19 @@ AsyncSqlListModel::~AsyncSqlListModel()
 
 Qt::ItemFlags AsyncSqlListModel::flags(const QModelIndex &index) const
 {
-    Qt::ItemFlags theFlags = QAbstractListModel::flags(index);
+    Qt::ItemFlags theFlags = AsyncSqlBaseModel::flags(index);
     if (index.isValid())
         theFlags |= Qt::ItemIsSelectable | Qt::ItemIsEditable | Qt::ItemIsEnabled;
+
     return theFlags;
+}
+
+int AsyncSqlListModel::columnCount(const QModelIndex &parent) const
+{
+    if (parent.isValid())
+        return 0;
+
+    return 1;
 }
 
 QVariant AsyncSqlListModel::data(const QModelIndex &index, int role) const
@@ -44,10 +35,16 @@ QVariant AsyncSqlListModel::data(const QModelIndex &index, int role) const
     if (!index.isValid() || index.row() < 0 || index.row() >= records_.count())
         return QVariant();
 
-    if (role >= Qt::UserRole + 1)
-        return record(index.row()).value(fieldIndex(QString::fromUtf8(roleNames()[role])));
-    if (role == Qt::DisplayRole || role == Qt::EditRole)
-        return records_.at(index.row()).value(0);
+    if (role >= Qt::UserRole + 1) {
+        const QByteArray roleName = roleNames().value(role);
+        if (!roleName.isEmpty())
+            return record(index.row()).value(fieldIndex(QString::fromUtf8(roleName)));
+    }
+
+    if (role == Qt::DisplayRole || role == Qt::EditRole) {
+        const int col = (index.column() >= 0 && index.column() < emptyRecord_.count()) ? index.column() : 0;
+        return records_.at(index.row()).value(col);
+    }
 
     return QVariant();
 }
@@ -56,533 +53,59 @@ QHash<int, QByteArray> AsyncSqlListModel::roleNames() const
 {
     QHash<int, QByteArray> roles;
     for (int i = 0; i < emptyRecord_.count(); ++i)
-        roles[Qt::UserRole + 1 + i] = emptyRecord_.fieldName(i).toUtf8();
+        roles[Qt::UserRole + i + 1] = emptyRecord_.fieldName(i).toUtf8();
     return roles;
-}
-
-int AsyncSqlListModel::rowCount(const QModelIndex &parent) const
-{
-    return parent.isValid() ? 0 : records_.count();
 }
 
 bool AsyncSqlListModel::setData(const QModelIndex &index, const QVariant &value, int role)
 {
-    if (records_.isEmpty())
-        return false;
-    if (!index.isValid() || index.row() < 0 || index.row() >= records_.count())
+    if (!index.isValid() || index.row() >= records_.count())
         return false;
 
-    // For a list model the column is always 0; derive the actual field column
-    // from the role (UserRole+1 = column 0, UserRole+2 = column 1, …).
-    int col = -1;
-    if (role >= Qt::UserRole + 1 && role <= Qt::UserRole + emptyRecord_.count())
-        col = role - Qt::UserRole - 1;
-    else if (role == Qt::EditRole)
-        col = 0;
-    else
-        return false;
+    QSqlRecord record = this->record(index.row());
+    int fieldCol = index.column();
 
-    if (col < 0 || col >= records_.first().count())
-        return false;
-
-    QSqlRecord rec = records_[index.row()];
-    rec.setValue(col, value);
-    records_[index.row()] = rec;
-
-    if (!insertedRows_.contains(index.row()) && !removedRows_.contains(index.row()) &&
-            !updatedRecordMap_.contains(index.row()))
-    {
-        QSqlRecord updated(emptyRecord_);
-        for (int i = 0; i < updated.count(); ++i)
-            updated.setGenerated(i, false);
-        updated.setValue(primaryIndex_.fieldName(0),
-                         records_[index.row()].value(primaryIndex_.fieldName(0)));
-        updated.setValue(col, value);
-        updated.setGenerated(col, true);
-        updatedRecordMap_.insert(index.row(), updated);
+    if (role >= Qt::UserRole + 1) {
+        const QByteArray roleName = roleNames().value(role);
+        fieldCol = fieldIndex(QString::fromUtf8(roleName));
     }
-    else if (!insertedRows_.contains(index.row()) && !removedRows_.contains(index.row()) &&
-             updatedRecordMap_.contains(index.row()))
-    {
-        QSqlRecord updated(updatedRecordMap_.value(index.row()));
-        updated.setValue(primaryIndex_.fieldName(0),
-                         records_[index.row()].value(primaryIndex_.fieldName(0)));
-        updated.setValue(col, value);
-        updated.setGenerated(col, true);
-        updatedRecordMap_.insert(index.row(), updated);
-    }
+
+    if (fieldCol < 0 || fieldCol >= record.count())
+        return false;
+
+    record.setValue(fieldCol, value);
+    records_[index.row()] = record;
+    updatedRecordMap_.insert(index.row(), record);
 
     Q_EMIT dataChanged(index, index);
     return true;
 }
 
-bool AsyncSqlListModel::insertRows(int row, int count, const QModelIndex &)
+bool AsyncSqlListModel::insertRows(int row, int count, const QModelIndex &parent)
 {
-    beginInsertRows(QModelIndex(), row, row + count - 1);
+    if (parent.isValid() || row < 0 || count <= 0)
+        return false;
+
+    beginInsertRows(parent, row, row + count - 1);
     for (int i = 0; i < count; ++i) {
-        records_.insert(row, emptyRecord_);
-        if (!insertedRows_.contains(row))
-            insertedRows_ << row;
+        records_.insert(row + i, emptyRecord_);
+        insertedRows_.append(row + i);
     }
     endInsertRows();
+
     return true;
 }
 
-bool AsyncSqlListModel::removeRows(int row, int count, const QModelIndex &)
+bool AsyncSqlListModel::removeRows(int row, int count, const QModelIndex &parent)
 {
-    if ((row < 0) || (row >= records_.count()) || records_.isEmpty())
+    if (parent.isValid() || row < 0 || row + count > records_.count() || count <= 0)
         return false;
 
-    if (originalRecords_.contains(records_.at(row))) {
-        if (!removedRows_.contains(row))
-            removedRows_ << row;
-        insertedRows_.removeAll(row);
-        return true;
+    beginRemoveRows(parent, row, row + count - 1);
+    for (int i = 0; i < count; ++i) {
+        removedRows_.append(row + i);
     }
-
-    beginRemoveRows(QModelIndex(), row, row + count - 1);
-    for (int i = 0; i < count; ++i)
-        records_.removeAt(row);
     endRemoveRows();
 
-    insertedRows_.removeAll(row);
     return true;
-}
-
-void AsyncSqlListModel::select()
-{
-    QString query = selectQuery_.trimmed().isEmpty()
-        ? QStringLiteral("SELECT * FROM %1").arg(tableName_)
-        : selectQuery_.trimmed();
-
-    if (!filter_.trimmed().isEmpty())
-        query += QStringLiteral(" WHERE ") + filter_.trimmed();
-
-    if (sortColumn_ >= 0) {
-        const QString col = emptyRecord_.fieldName(sortColumn_);
-        if (!col.isEmpty()) {
-            switch (order_) {
-            case Qt::AscendingOrder:
-                query += QStringLiteral(" ORDER BY %1").arg(col);
-                break;
-            case Qt::DescendingOrder:
-                query += QStringLiteral(" ORDER BY %1 DESC").arg(col);
-                break;
-            default:
-                break;
-            }
-        }
-    }
-
-    if (limit_ >= 0)
-        query += QStringLiteral(" LIMIT ") + QString::number(limit_);
-
-    if (records_.count())
-        removeRows(0, records_.count());
-    records_.clear();
-    originalRecords_.clear();
-    insertedRows_.clear();
-    removedRows_.clear();
-    updatedRecordMap_.clear();
-    originalInsertedRows_.clear();
-    originalRemovedRows_.clear();
-    originalUpdatedRecordMap_.clear();
-    error_ = QSqlError();
-
-    setBusy(true);
-
-    QueryRequest request(this, query, tableName_, QueryRequest::Select);
-    request.setSortColumn(sortColumn_);
-
-    if (!initDone_) {
-        initDone_ = true;
-        request.setRunBefore([this](QSqlDatabase db){ onInit(db); });
-    }
-
-    Q_EMIT execute(request);
-}
-
-bool AsyncSqlListModel::getResults(const QueryResult &result)
-{
-    if (static_cast<AsyncSqlListModel *>(result.getReceiver()) != this)
-        return false;
-
-    setBusy(false);
-
-    if (result.getError().isValid()) {
-        error_ = result.getError();
-
-        if (result.getRequestType() == QueryRequest::Select)
-            Q_EMIT selected(false);
-        else if (result.getRequestType() == QueryRequest::CustomOperation)
-            Q_EMIT executed(false);
-        else
-            Q_EMIT submitted(false);
-
-        submitCalled_ = false;
-        return false;
-    }
-
-    switch (result.getRequestType()) {
-    case QueryRequest::Select:
-    {
-        beginResetModel();
-        records_ = result.getRecords();
-        originalRecords_ = result.getRecords();
-        primaryIndex_ = result.getPrimaryIndex();
-        lastRecord_ = result.getLastRecord();
-        emptyRecord_ = result.getRecord();
-
-        if (!selectedSignalSuppressed_)
-            Q_EMIT selected(true);
-        endResetModel();
-    }
-        break;
-    case QueryRequest::Insert:
-        insertedRows_.clear();
-        break;
-    case QueryRequest::Update:
-        updatedRecordMap_.clear();
-        break;
-    case QueryRequest::Delete:
-        removedRows_.clear();
-        break;
-    case QueryRequest::CustomOperation:
-        Q_EMIT executed(true);
-        break;
-    case QueryRequest::BeginTransaction:
-    case QueryRequest::CommitTransaction:
-    case QueryRequest::Command:
-    case QueryRequest::None:
-    default:
-        break;
-    }
-
-    if (!insertedRows_.count() && !updatedRecordMap_.count() && !removedRows_.count() && submitCalled_) {
-        submitCalled_ = false;
-        Q_EMIT submitted(true);
-    }
-
-    return true;
-}
-
-void AsyncSqlListModel::setFilter(const QString &filter)
-{
-    filter_ = filter;
-}
-
-QString AsyncSqlListModel::filter() const
-{
-    return filter_;
-}
-
-void AsyncSqlListModel::setSort(int column, Qt::SortOrder order)
-{
-    sortColumn_ = column;
-    order_ = order;
-}
-
-void AsyncSqlListModel::setTable(const QString &tableName)
-{
-    tableName_ = tableName;
-}
-
-QString AsyncSqlListModel::tableName() const
-{
-    return tableName_;
-}
-
-void AsyncSqlListModel::setSelectQuery(const QString &query)
-{
-    selectQuery_ = query;
-}
-
-QString AsyncSqlListModel::selectQuery() const
-{
-    return selectQuery_;
-}
-
-bool AsyncSqlListModel::isDirty() const
-{
-    return !insertedRows_.isEmpty() || !updatedRecordMap_.isEmpty() || !removedRows_.isEmpty();
-}
-
-bool AsyncSqlListModel::isDirty(const QModelIndex &index) const
-{
-    return insertedRows_.contains(index.row())
-        || !updatedRecordMap_.value(index.row()).field(index.column()).isGenerated()
-        || removedRows_.contains(index.row());
-}
-
-QList<QSqlRecord> AsyncSqlListModel::insertedRecords() const
-{
-    QList<QSqlRecord> records;
-    for (auto &row : insertedRows_)
-        records << records_.at(row);
-    return records;
-}
-
-QMap<int, QSqlRecord> AsyncSqlListModel::updatedRecords() const
-{
-    return updatedRecordMap_;
-}
-
-QList<QSqlRecord> AsyncSqlListModel::removedRecords() const
-{
-    QList<QSqlRecord> records;
-    for (auto &row : removedRows_)
-        records << records_.at(row);
-    return records;
-}
-
-void AsyncSqlListModel::setLastError(const QSqlError &e)
-{
-    error_ = e;
-}
-
-QSqlError AsyncSqlListModel::lastError() const
-{
-    return error_;
-}
-
-void AsyncSqlListModel::setForeignKeyFlag(bool flag)
-{
-    foreignKeyFlag_ = flag;
-}
-
-bool AsyncSqlListModel::foreignKeyFlag() const
-{
-    return foreignKeyFlag_;
-}
-
-void AsyncSqlListModel::setCurrentRow(int row)
-{
-    if (currentRow_ == row)
-        return;
-    currentRow_ = row;
-    Q_EMIT currentRowChanged(row);
-}
-
-int AsyncSqlListModel::currentRow() const
-{
-    return currentRow_;
-}
-
-QVariant AsyncSqlListModel::field(const QString &columnName) const
-{
-    return data(index(currentRow_, 0), Qt::UserRole + 1 + fieldIndex(columnName));
-}
-
-void AsyncSqlListModel::beginTransaction()
-{
-    QueryRequest request(this, QString(), tableName_, QueryRequest::BeginTransaction);
-    Q_EMIT execute(request);
-}
-
-void AsyncSqlListModel::commitTransaction()
-{
-    QueryRequest request(this, QString(), tableName_, QueryRequest::CommitTransaction);
-    Q_EMIT execute(request);
-}
-
-bool AsyncSqlListModel::validateModel()
-{
-    return true;
-}
-
-void AsyncSqlListModel::submitAll()
-{
-    if (insertedRows_.isEmpty() && updatedRecordMap_.isEmpty() && removedRows_.isEmpty()) {
-        Q_EMIT submitted(true);
-        return;
-    }
-    if (!validateModel())
-        return;
-    if (submitCalled_)
-        return;
-
-    originalUpdatedRecordMap_ = updatedRecordMap_;
-    originalInsertedRows_ = insertedRows_;
-    originalRemovedRows_ = removedRows_;
-
-    error_ = QSqlError();
-
-    QueryRequest request(this);
-    request.setTableName(tableName_);
-    request.setPrimaryIndex(primaryIndex_);
-    QList<QSqlRecord> records;
-
-    if (!updatedRecordMap_.isEmpty()) {
-        request.setRequestType(QueryRequest::Update);
-        records = updatedRecordMap_.values();
-        request.setRecords(records);
-        Q_EMIT execute(request);
-    }
-
-    if (!insertedRows_.isEmpty()) {
-        request.setRequestType(QueryRequest::Insert);
-        records.clear();
-        for (int i = 0; i < insertedRows_.count(); ++i)
-            records << records_.at(insertedRows_.at(i));
-        request.setRecords(records);
-        Q_EMIT execute(request);
-        records.clear();
-    }
-
-    if (!removedRows_.isEmpty()) {
-        request.setRequestType(QueryRequest::Delete);
-        for (int i = 0; i < removedRows_.count(); ++i)
-            records << records_.at(removedRows_.at(i));
-        request.setRecords(records);
-        Q_EMIT execute(request);
-        records.clear();
-    }
-
-    submitCalled_ = true;
-}
-
-void AsyncSqlListModel::revertAll()
-{
-    beginResetModel();
-    records_ = originalRecords_;
-    insertedRows_.clear();
-    updatedRecordMap_.clear();
-    removedRows_.clear();
-    endResetModel();
-}
-
-QSqlRecord AsyncSqlListModel::record() const
-{
-    return emptyRecord_;
-}
-
-QSqlRecord AsyncSqlListModel::record(int row) const
-{
-    if ((row < 0) || (row >= records_.count()))
-        return emptyRecord_;
-    return records_.at(row);
-}
-
-bool AsyncSqlListModel::appendRecord(const QSqlRecord &record)
-{
-    if (record.count() != this->record().count())
-        return false;
-
-    bool inserted = insertRow(rowCount());
-    int row = rowCount() - 1;
-
-    for (int i = 0; i < record.count(); ++i) {
-        QModelIndex cell = index(row, 0);
-        setData(cell, record.value(i), Qt::UserRole + 1 + i);
-    }
-
-    return inserted;
-}
-
-void AsyncSqlListModel::setSelectedSignalSuppressed(bool s)
-{
-    selectedSignalSuppressed_ = s;
-}
-
-bool AsyncSqlListModel::isSelectedSignalSuppressed() const
-{
-    return selectedSignalSuppressed_;
-}
-
-void AsyncSqlListModel::setRecords(const QList<QSqlRecord> &records)
-{
-    records_ = records;
-}
-
-void AsyncSqlListModel::setOriginalRecords(const QList<QSqlRecord> &records)
-{
-    originalRecords_ = records;
-}
-
-QList<QSqlRecord> AsyncSqlListModel::records() const
-{
-    return records_;
-}
-
-QList<QSqlRecord> AsyncSqlListModel::originalRecords() const
-{
-    return originalRecords_;
-}
-
-QSqlRecord AsyncSqlListModel::lastRecord() const
-{
-    return lastRecord_;
-}
-
-void AsyncSqlListModel::setBusy(bool b)
-{
-    if (busy_ == b)
-        return;
-    busy_ = b;
-    Q_EMIT busyChanged(b);
-}
-
-void AsyncSqlListModel::setLimit(int limit)
-{
-    limit_ = limit;
-}
-
-int AsyncSqlListModel::limit() const
-{
-    return limit_;
-}
-
-int AsyncSqlListModel::fieldIndex(const QString &fieldName) const
-{
-    if (fieldName.trimmed().isEmpty())
-        return -1;
-    return record().indexOf(fieldName);
-}
-
-QList<int> AsyncSqlListModel::insertedRows() const
-{
-    return insertedRows_;
-}
-
-QSqlIndex AsyncSqlListModel::primaryIndex() const
-{
-    return primaryIndex_;
-}
-
-bool AsyncSqlListModel::setRecord(int row, const QSqlRecord &record)
-{
-    if ((row < 0) || (row >= rowCount()))
-        return false;
-    if (record.count() != emptyRecord_.count())
-        return false;
-
-    for (int column = 0; column < record.count(); ++column) {
-        QModelIndex cell = this->index(row, 0);
-        setData(cell, record.value(column), Qt::UserRole + 1 + column);
-    }
-
-    return true;
-}
-
-void AsyncSqlListModel::customInsert(const QVariantMap &values)
-{
-    if (values.isEmpty())
-        return;
-}
-
-void AsyncSqlListModel::customUpdate(const QVariantMap &values)
-{
-    if (values.isEmpty())
-        return;
-}
-
-bool AsyncSqlListModel::isBusy() const
-{
-    return busy_;
-}
-
-void AsyncSqlListModel::onInit(QSqlDatabase &)
-{
-    // Default: no-op.  Override to run schema migrations or one-time setup
-    // on the worker thread before the first select().
 }

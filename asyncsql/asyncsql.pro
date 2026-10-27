@@ -9,6 +9,7 @@ TARGET = asyncsql
 DESTDIR = $$PWD/../lib
 
 SOURCES += \
+    asyncsqlbasemodel.cpp \
     asyncsqltablemodel.cpp \
     asyncsqllistmodel.cpp \
     asyncmodelregister.cpp \
@@ -20,6 +21,7 @@ SOURCES += \
     queryworker.cpp
 
 HEADERS += \
+    asyncsqlbasemodel.h \
     asyncsqltablemodel.h \
     asyncsqllistmodel.h \
     asyncmodelregister.h \
